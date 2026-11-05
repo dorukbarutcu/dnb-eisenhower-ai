@@ -81,6 +81,13 @@ class UpdaterNotifier extends Notifier<UpdaterState> {
       state = state.copyWith(isDownloading: false, errorMessage: 'İndirme hatası: $e');
     }
   }
+
+  Future<void> openReleaseInBrowser() async {
+    final info = state.releaseInfo;
+    if (info == null) return;
+    final targetUrl = info.apkDownloadUrl.isNotEmpty ? info.apkDownloadUrl : info.releaseUrl;
+    await _service.openInBrowser(targetUrl);
+  }
 }
 
 final updaterProvider = NotifierProvider<UpdaterNotifier, UpdaterState>(UpdaterNotifier.new);

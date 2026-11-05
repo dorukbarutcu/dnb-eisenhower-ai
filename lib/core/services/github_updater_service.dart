@@ -7,6 +7,7 @@ class GitHubReleaseInfo {
   final String tagName;
   final String releaseNotes;
   final String apkDownloadUrl;
+  final String releaseUrl;
   final int apkSizeBytes;
   final bool isNewer;
 
@@ -14,13 +15,14 @@ class GitHubReleaseInfo {
     required this.tagName,
     required this.releaseNotes,
     required this.apkDownloadUrl,
+    required this.releaseUrl,
     required this.apkSizeBytes,
     required this.isNewer,
   });
 }
 
 class GitHubUpdaterService {
-  static const String currentVersion = '1.0.2';
+  static const String currentVersion = '1.0.3';
   static const String repoOwner = 'dorukbarutcu';
   static const String repoName = 'dnb-eisenhower-ai';
 
@@ -63,11 +65,13 @@ class GitHubUpdaterService {
 
       final cleanTag = tagName.replaceAll('v', '').trim();
       final isNewer = _isVersionGreater(cleanTag, currentVersion);
+      final releaseHtmlUrl = json['html_url']?.toString() ?? 'https://github.com/$repoOwner/$repoName/releases/latest';
 
       return GitHubReleaseInfo(
         tagName: tagName,
         releaseNotes: bodyText,
         apkDownloadUrl: apkUrl,
+        releaseUrl: releaseHtmlUrl,
         apkSizeBytes: apkSize,
         isNewer: isNewer,
       );
@@ -91,6 +95,12 @@ class GitHubUpdaterService {
     return false;
   }
 
+  Future<void> openInBrowser(String url) async {
+    try {
+      await _channel.invokeMethod('openUrl', {'url': url});
+    } catch (_) {}
+  }
+
   Future<void> downloadAndInstall({
     required String downloadUrl,
     Function(int received, int total)? onProgress,
@@ -103,9 +113,13 @@ class GitHubUpdaterService {
     final total = response.contentLength;
     int received = 0;
 
-    // Use app cache directory
-    final tempDir = Directory.systemTemp;
-    final file = File('${tempDir.path}/update.apk');
+    // Retrieve native app cache directory
+    String? nativeCachePath;
+    try {
+      nativeCachePath = await _channel.invokeMethod<String>('getCachePath');
+    } catch (_) {}
+    final dirPath = nativeCachePath ?? Directory.systemTemp.path;
+    final file = File('$dirPath/update.apk');
     if (await file.exists()) {
       await file.delete();
     }

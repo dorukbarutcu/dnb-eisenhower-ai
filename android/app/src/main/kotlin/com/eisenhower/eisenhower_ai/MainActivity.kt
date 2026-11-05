@@ -42,20 +42,54 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.eisenhower.ai/updater").setMethodCallHandler { call, result ->
             when (call.method) {
+                "getCachePath" -> {
+                    result.success(applicationContext.cacheDir.absolutePath)
+                }
+                "openUrl" -> {
+                    val url = call.argument<String>("url")
+                    if (url != null) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("URL_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.error("INVALID_URL", "URL is null", null)
+                    }
+                }
                 "installApk" -> {
                     val filePath = call.argument<String>("filePath")
                     if (filePath != null) {
                         try {
-                            val file = java.io.File(filePath)
+                            val srcFile = java.io.File(filePath)
+                            // Ensure file is in cacheDir so FileProvider cache-path always resolves cleanly
+                            val targetFile = if (!srcFile.parentFile?.absolutePath.orEmpty().contains(applicationContext.cacheDir.absolutePath)) {
+                                val dest = java.io.File(applicationContext.cacheDir, "update.apk")
+                                srcFile.copyTo(dest, overwrite = true)
+                                dest
+                            } else {
+                                srcFile
+                            }
+
                             val uri = androidx.core.content.FileProvider.getUriForFile(
                                 applicationContext,
                                 "${applicationContext.packageName}.fileprovider",
-                                file
+                                targetFile
                             )
                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(uri, "application/vnd.android.package-archive")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            // Grant permission to all matching resolve activities
+                            val resInfoList = packageManager.queryIntentActivities(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                            for (resolveInfo in resInfoList) {
+                                val packageName = resolveInfo.activityInfo.packageName
+                                grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
                             startActivity(intent)
                             result.success(true)

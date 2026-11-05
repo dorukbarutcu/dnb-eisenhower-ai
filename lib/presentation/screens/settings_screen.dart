@@ -595,6 +595,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         updater.errorMessage!,
                         style: const TextStyle(color: Colors.redAccent, fontSize: 11),
                       ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.lightBlueAccent,
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(50, 30),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.open_in_browser, size: 16),
+                        label: const Text('Tarayıcı ile Doğrudan İndir & Kur', style: TextStyle(fontSize: 12)),
+                        onPressed: () => ref.read(updaterProvider.notifier).openReleaseInBrowser(),
+                      ),
                     ],
                     const SizedBox(height: 14),
                     Row(

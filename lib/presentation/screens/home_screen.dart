@@ -597,6 +597,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       state.errorMessage!,
                       style: const TextStyle(fontSize: 11, color: Colors.redAccent),
                     ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.lightBlueAccent,
+                        padding: EdgeInsets.zero,
+                      ),
+                      icon: const Icon(Icons.open_in_browser, size: 16),
+                      label: const Text('Tarayıcıdan İndir & Kur', style: TextStyle(fontSize: 12)),
+                      onPressed: () => ref.read(updaterProvider.notifier).openReleaseInBrowser(),
+                    ),
                   ],
                 ],
               ),
