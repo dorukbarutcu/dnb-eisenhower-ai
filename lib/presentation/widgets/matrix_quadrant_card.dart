@@ -107,6 +107,8 @@ class MatrixQuadrantCard extends StatelessWidget {
                       Text(
                         _getSubtitle(),
                         style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

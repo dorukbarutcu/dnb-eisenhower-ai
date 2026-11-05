@@ -21,7 +21,7 @@ class EisenhowerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Eisenhower AI',
+      title: 'DNB Eisenhower AI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: const HomeScreen(),

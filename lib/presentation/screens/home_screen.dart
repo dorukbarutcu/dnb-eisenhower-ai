@@ -23,6 +23,7 @@ class HomeScreen extends ConsumerWidget {
     final geminiConfig = ref.watch(geminiConfigProvider);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Row(
           children: [
@@ -35,7 +36,7 @@ class HomeScreen extends ConsumerWidget {
               child: const Icon(Icons.grid_view_rounded, color: AppColors.q2Blue, size: 20),
             ),
             const SizedBox(width: 10),
-            const Text('Eisenhower AI'),
+            const Text('DNB Eisenhower AI'),
           ],
         ),
         actions: [
@@ -67,8 +68,8 @@ class HomeScreen extends ConsumerWidget {
             // Status & Alert Banner
             if (!geminiConfig.isValid)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.amber.withAlpha(30),
                   borderRadius: BorderRadius.circular(10),
@@ -76,15 +77,20 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 18),
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 16),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
                         'Gemini API key is required for AI task classification.',
-                        style: TextStyle(fontSize: 12, color: Colors.amber),
+                        style: TextStyle(fontSize: 11, color: Colors.amber),
                       ),
                     ),
                     TextButton(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -99,7 +105,7 @@ class HomeScreen extends ConsumerWidget {
 
             // Live Service Status Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               child: Row(
                 children: [
                   _buildStatusChip(
@@ -128,6 +134,8 @@ class HomeScreen extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Sync unread Gmail',
                       icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       onPressed: matrixState.isProcessing
                           ? null
                           : () => ref.read(taskMatrixProvider.notifier).fetchAndProcessGmail(),
@@ -139,8 +147,8 @@ class HomeScreen extends ConsumerWidget {
             // Processing Indicator
             if (matrixState.isProcessing)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceLight,
                   borderRadius: BorderRadius.circular(8),
@@ -148,15 +156,15 @@ class HomeScreen extends ConsumerWidget {
                 child: Row(
                   children: [
                     const SizedBox(
-                      width: 14,
-                      height: 14,
+                      width: 12,
+                      height: 12,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.q2Blue),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         matrixState.statusMessage ?? 'Processing...',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                        style: const TextStyle(fontSize: 11, color: AppColors.textPrimary),
                       ),
                     ),
                   ],
@@ -166,8 +174,8 @@ class HomeScreen extends ConsumerWidget {
             // Error display
             if (matrixState.errorMessage != null)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.red.withAlpha(30),
                   borderRadius: BorderRadius.circular(8),
@@ -175,14 +183,14 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 child: Text(
                   matrixState.errorMessage!,
-                  style: const TextStyle(fontSize: 12, color: Colors.redAccent),
+                  style: const TextStyle(fontSize: 11, color: Colors.redAccent),
                 ),
               ),
 
             // Eisenhower 2x2 Grid
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 child: Column(
                   children: [
                     Expanded(
@@ -196,7 +204,7 @@ class HomeScreen extends ConsumerWidget {
                               onDeleteTask: (id) => ref.read(taskMatrixProvider.notifier).deleteTask(id),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: MatrixQuadrantCard(
                               quadrant: EisenhowerQuadrant.q2,
@@ -208,7 +216,7 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: Row(
                         children: [
@@ -220,7 +228,7 @@ class HomeScreen extends ConsumerWidget {
                               onDeleteTask: (id) => ref.read(taskMatrixProvider.notifier).deleteTask(id),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: MatrixQuadrantCard(
                               quadrant: EisenhowerQuadrant.q4,
@@ -236,92 +244,91 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-
-            // Bottom Action Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Voice Input
-                  IconButton(
-                    tooltip: 'Voice Input',
-                    icon: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: AppColors.voicePurple,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.mic, color: Colors.white, size: 22),
-                    ),
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => const VoiceInputSheet(),
-                      );
-                    },
-                  ),
-                  // Manual Text / Note Input
-                  IconButton(
-                    tooltip: 'Add / Paste Task',
-                    icon: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: AppColors.q2Blue,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 22),
-                    ),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => const AddTaskDialog(),
-                      );
-                    },
-                  ),
-                  // Fetch Gmail
-                  IconButton(
-                    tooltip: 'Fetch Gmail',
-                    icon: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: authState.isAuthenticated ? AppColors.gmailRed : Colors.grey,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.mail, color: Colors.white, size: 22),
-                    ),
-                    onPressed: authState.isAuthenticated
-                        ? () => ref.read(taskMatrixProvider.notifier).fetchAndProcessGmail()
-                        : () => ref.read(googleAuthProvider.notifier).signIn(),
-                  ),
-                  // Weekly Schedule
-                  IconButton(
-                    tooltip: 'Weekly Calendar',
-                    icon: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: AppColors.surfaceLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.date_range, color: Colors.white, size: 22),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const WeeklyScheduleScreen()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                IconButton(
+                  tooltip: 'Voice Input',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: AppColors.voicePurple,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mic, color: Colors.white, size: 20),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const VoiceInputSheet(),
+                    );
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Add / Paste Task',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: AppColors.q2Blue,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => const AddTaskDialog(),
+                    );
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Fetch Gmail',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: authState.isAuthenticated ? AppColors.gmailRed : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mail, color: Colors.white, size: 20),
+                  ),
+                  onPressed: authState.isAuthenticated
+                      ? () => ref.read(taskMatrixProvider.notifier).fetchAndProcessGmail()
+                      : () => ref.read(googleAuthProvider.notifier).signIn(),
+                ),
+                IconButton(
+                  tooltip: 'Weekly Calendar',
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surfaceLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.date_range, color: Colors.white, size: 20),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WeeklyScheduleScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

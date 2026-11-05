@@ -27,6 +27,6 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('Eisenhower AI'), findsOneWidget);
+    expect(find.text('DNB Eisenhower AI'), findsOneWidget);
   });
 }
