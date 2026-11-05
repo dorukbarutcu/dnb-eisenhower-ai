@@ -34,7 +34,7 @@ class GmailRemoteDatasource {
   Future<List<GmailMessageSnippet>> fetchUnreadEmails({int maxResults = 10}) async {
     final listResponse = await _gmailApi.users.messages.list(
       'me',
-      q: 'is:unread category:primary',
+      q: 'is:unread label:INBOX',
       maxResults: maxResults,
     );
 

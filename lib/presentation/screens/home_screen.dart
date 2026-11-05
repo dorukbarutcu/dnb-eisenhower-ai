@@ -5,6 +5,7 @@ import '../../domain/entities/task_source.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gemini_config_provider.dart';
 import '../providers/notification_listener_provider.dart';
+import '../providers/periodic_sync_provider.dart';
 import '../providers/task_matrix_provider.dart';
 import '../widgets/add_task_dialog.dart';
 import '../widgets/matrix_quadrant_card.dart';
@@ -21,6 +22,7 @@ class HomeScreen extends ConsumerWidget {
     final authState = ref.watch(googleAuthProvider);
     final notifState = ref.watch(notificationListenerProvider);
     final geminiConfig = ref.watch(geminiConfigProvider);
+    final syncState = ref.watch(periodicSyncProvider);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -106,41 +108,56 @@ class HomeScreen extends ConsumerWidget {
             // Live Service Status Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              child: Row(
-                children: [
-                  _buildStatusChip(
-                    label: 'Notifications',
-                    isActive: notifState.hasPermission,
-                    activeColor: Colors.green,
-                    inactiveColor: Colors.grey,
-                    icon: Icons.notifications,
-                    onTap: () => ref.read(notificationListenerProvider.notifier).openSettings(),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildStatusChip(
-                    label: 'Google Account',
-                    isActive: authState.isAuthenticated,
-                    activeColor: AppColors.q2Blue,
-                    inactiveColor: Colors.grey,
-                    icon: Icons.account_circle,
-                    onTap: () {
-                      if (!authState.isAuthenticated) {
-                        ref.read(googleAuthProvider.notifier).signIn();
-                      }
-                    },
-                  ),
-                  const Spacer(),
-                  if (authState.isAuthenticated)
-                    IconButton(
-                      tooltip: 'Sync unread Gmail',
-                      icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: matrixState.isProcessing
-                          ? null
-                          : () => ref.read(taskMatrixProvider.notifier).fetchAndProcessGmail(),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildStatusChip(
+                      label: 'Notifications',
+                      isActive: notifState.hasPermission,
+                      activeColor: Colors.green,
+                      inactiveColor: Colors.grey,
+                      icon: Icons.notifications,
+                      onTap: () => ref.read(notificationListenerProvider.notifier).openSettings(),
                     ),
-                ],
+                    const SizedBox(width: 8),
+                    _buildStatusChip(
+                      label: 'Google Account',
+                      isActive: authState.isAuthenticated,
+                      activeColor: AppColors.q2Blue,
+                      inactiveColor: Colors.grey,
+                      icon: Icons.account_circle,
+                      onTap: () {
+                        if (!authState.isAuthenticated) {
+                          ref.read(googleAuthProvider.notifier).signIn();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _buildStatusChip(
+                      label: syncState.isSyncing
+                          ? 'Taranıyor...'
+                          : (syncState.isAutoSyncEnabled ? '1s Oto-Tarama' : 'Oto-Tarama Kapalı'),
+                      isActive: syncState.isAutoSyncEnabled,
+                      activeColor: Colors.tealAccent,
+                      inactiveColor: Colors.grey,
+                      icon: syncState.isSyncing ? Icons.sync : Icons.auto_mode,
+                      onTap: () => ref.read(periodicSyncProvider.notifier).triggerSync(),
+                    ),
+                    if (authState.isAuthenticated) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: 'Sync unread Gmail',
+                        icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: matrixState.isProcessing
+                            ? null
+                            : () => ref.read(taskMatrixProvider.notifier).fetchAndProcessGmail(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
 

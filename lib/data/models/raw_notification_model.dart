@@ -22,6 +22,8 @@ class RawNotificationModel {
       source = TaskSource.telegram;
     } else if (srcStr.toLowerCase().contains('sms')) {
       source = TaskSource.sms;
+    } else if (srcStr.toLowerCase().contains('gmail')) {
+      source = TaskSource.gmail;
     } else {
       source = TaskSource.whatsApp;
     }

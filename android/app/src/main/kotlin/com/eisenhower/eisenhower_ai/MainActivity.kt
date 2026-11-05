@@ -32,6 +32,10 @@ class MainActivity : FlutterActivity() {
                     openNotificationSettings()
                     result.success(true)
                 }
+                "getPendingNotifications" -> {
+                    val pending = EisenhowerNotificationListener.getAndClearPendingNotifications(context)
+                    result.success(pending)
+                }
                 else -> result.notImplemented()
             }
         }

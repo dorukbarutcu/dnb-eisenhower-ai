@@ -26,7 +26,7 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
                 "postTime" to System.currentTimeMillis()
             )
 
-            EisenhowerNotificationListener.dispatchPayload(payload)
+            EisenhowerNotificationListener.dispatchPayload(context, payload)
         } catch (_: Exception) {}
     }
 }

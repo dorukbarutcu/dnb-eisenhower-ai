@@ -30,6 +30,7 @@ class NotificationListenerState {
 
 class NotificationListenerNotifier extends Notifier<NotificationListenerState> {
   final NotificationStreamDatasource _datasource = NotificationStreamDatasource();
+  final Set<String> _processedKeys = {};
   StreamSubscription<RawNotificationModel>? _sub;
 
   @override
@@ -37,7 +38,10 @@ class NotificationListenerNotifier extends Notifier<NotificationListenerState> {
     ref.onDispose(() {
       _sub?.cancel();
     });
-    Future.microtask(checkPermission);
+    Future.microtask(() async {
+      await checkPermission();
+      await processPendingNotifications();
+    });
     return const NotificationListenerState();
   }
 
@@ -53,6 +57,42 @@ class NotificationListenerNotifier extends Notifier<NotificationListenerState> {
     await _datasource.openNotificationSettings();
   }
 
+  Future<void> processPendingNotifications() async {
+    final pending = await _datasource.getPendingNotifications();
+    for (final notif in pending) {
+      if (!_isDuplicateOrNoise(notif)) {
+        ref.read(taskMatrixProvider.notifier).processNotification(notif);
+      }
+    }
+  }
+
+  bool _isDuplicateOrNoise(RawNotificationModel notification) {
+    final title = notification.title.trim();
+    final text = notification.text.trim();
+    if (text.isEmpty && title.isEmpty) return true;
+
+    // Filter trivial notification banners
+    final lower = text.toLowerCase();
+    if (lower.contains('new messages') ||
+        lower.contains('yeni mesaj') ||
+        lower.contains('checking for new messages') ||
+        lower == 'ok' ||
+        lower == 'tamam' ||
+        lower == '👍') {
+      return true;
+    }
+
+    final key = '${notification.source.value}:$title:$text';
+    if (_processedKeys.contains(key)) {
+      return true;
+    }
+    _processedKeys.add(key);
+    if (_processedKeys.length > 200) {
+      _processedKeys.remove(_processedKeys.first);
+    }
+    return false;
+  }
+
   void startListening() {
     _sub?.cancel();
     _sub = _datasource.notificationStream.listen((notification) {
@@ -64,8 +104,10 @@ class NotificationListenerNotifier extends Notifier<NotificationListenerState> {
         isListening: true,
       );
 
-      // Trigger automatic classification and scheduling
-      ref.read(taskMatrixProvider.notifier).processNotification(notification);
+      // Trigger automatic classification and scheduling if not noise/duplicate
+      if (!_isDuplicateOrNoise(notification)) {
+        ref.read(taskMatrixProvider.notifier).processNotification(notification);
+      }
     });
     state = state.copyWith(isListening: true);
   }

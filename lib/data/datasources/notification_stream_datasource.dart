@@ -24,6 +24,20 @@ class NotificationStreamDatasource {
     } catch (_) {}
   }
 
+  Future<List<RawNotificationModel>> getPendingNotifications() async {
+    try {
+      final List<dynamic>? list =
+          await _controlChannel.invokeMethod<List<dynamic>>('getPendingNotifications');
+      if (list == null || list.isEmpty) return [];
+      return list
+          .whereType<Map>()
+          .map((item) => RawNotificationModel.fromMap(item))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Stream<RawNotificationModel> get notificationStream {
     return _streamChannel
         .receiveBroadcastStream()

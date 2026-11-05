@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gemini_config_provider.dart';
 import '../providers/notification_listener_provider.dart';
+import '../providers/periodic_sync_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -75,7 +77,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: geminiConfig.modelName,
+                  initialValue: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']
+                          .contains(geminiConfig.modelName)
+                      ? geminiConfig.modelName
+                      : 'gemini-2.5-flash',
                   decoration: const InputDecoration(
                     labelText: 'Model Seçimi',
                     prefixIcon: Icon(Icons.psychology, color: AppColors.q2Blue),
@@ -83,12 +88,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   dropdownColor: AppColors.surface,
                   items: const [
                     DropdownMenuItem(
-                      value: 'gemini-3.8-flash',
-                      child: Text('gemini-3.8-flash (Gemini 3.8 Flash - Aktif & Önerilen)'),
+                      value: 'gemini-2.5-flash',
+                      child: Text('gemini-2.5-flash (En Yeni & Önerilen)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-3.8-pro',
-                      child: Text('gemini-3.8-pro (Gemini 3.8 Pro - Yüksek Akıl Yürütme)'),
+                      value: 'gemini-2.0-flash',
+                      child: Text('gemini-2.0-flash (Hızlı & Kararlı)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemini-1.5-flash',
+                      child: Text('gemini-1.5-flash (Yüksek Kota & Kararlı)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemini-2.5-pro',
+                      child: Text('gemini-2.5-pro (Gelişmiş Akıl Yürütme)'),
                     ),
                   ],
                   onChanged: (val) {
@@ -423,6 +436,83 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 24),
+
+          // 1-Hour Automatic Sync Automation
+          _buildSectionHeader('Otomatik Periyodik Tarama (Her 1 Saatte)'),
+          Consumer(
+            builder: (context, ref, _) {
+              final syncState = ref.watch(periodicSyncProvider);
+              final timeFormat = DateFormat('HH:mm');
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        '1 Saatte 1 Otomatik Tarama',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      subtitle: const Text(
+                        'Her saat başı Gmail, WhatsApp/Telegram ve SMS bildirimlerini otomatik tara, Gemini AI ile matrise ve Google Takvime aktar.',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                      ),
+                      value: syncState.isAutoSyncEnabled,
+                      activeThumbColor: Colors.tealAccent,
+                      onChanged: (val) {
+                        ref.read(periodicSyncProvider.notifier).toggleAutoSync(val);
+                      },
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          syncState.lastSyncTime != null
+                              ? 'Son Tarama: ${timeFormat.format(syncState.lastSyncTime!)}'
+                              : 'Son Tarama: Henüz yapılmadı',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                        if (syncState.nextSyncTime != null && syncState.isAutoSyncEnabled)
+                          Text(
+                            'Sonraki: ${timeFormat.format(syncState.nextSyncTime!)}',
+                            style: const TextStyle(fontSize: 12, color: Colors.tealAccent),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.surfaceLight,
+                          foregroundColor: Colors.tealAccent,
+                        ),
+                        icon: syncState.isSyncing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.tealAccent),
+                              )
+                            : const Icon(Icons.sync, size: 18),
+                        label: Text(syncState.isSyncing ? 'Taranıyor...' : 'Şimdi Manuel Tara'),
+                        onPressed: syncState.isSyncing
+                            ? null
+                            : () => ref.read(periodicSyncProvider.notifier).triggerSync(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/calendar_remote_datasource.dart';
 import '../../data/datasources/gemini_datasource.dart';
@@ -15,6 +16,7 @@ import 'gemini_config_provider.dart';
 class TaskMatrixState {
   final List<TaskEntity> tasks;
   final bool isProcessing;
+  final int queueLength;
   final String? statusMessage;
   final String? lastSummary;
   final String? errorMessage;
@@ -22,6 +24,7 @@ class TaskMatrixState {
   const TaskMatrixState({
     this.tasks = const [],
     this.isProcessing = false,
+    this.queueLength = 0,
     this.statusMessage,
     this.lastSummary,
     this.errorMessage,
@@ -39,6 +42,7 @@ class TaskMatrixState {
   TaskMatrixState copyWith({
     List<TaskEntity>? tasks,
     bool? isProcessing,
+    int? queueLength,
     String? statusMessage,
     String? lastSummary,
     String? errorMessage,
@@ -46,6 +50,7 @@ class TaskMatrixState {
     return TaskMatrixState(
       tasks: tasks ?? this.tasks,
       isProcessing: isProcessing ?? this.isProcessing,
+      queueLength: queueLength ?? this.queueLength,
       statusMessage: statusMessage,
       lastSummary: lastSummary ?? this.lastSummary,
       errorMessage: errorMessage,
@@ -53,8 +58,22 @@ class TaskMatrixState {
   }
 }
 
+class _AnalysisQueueItem {
+  final String content;
+  final TaskSource source;
+  final Completer<void> completer;
+
+  _AnalysisQueueItem({
+    required this.content,
+    required this.source,
+    required this.completer,
+  });
+}
+
 class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
   final TaskRepository _repository = TaskRepositoryImpl(LocalTaskDatasource());
+  final List<_AnalysisQueueItem> _queue = [];
+  bool _isWorkerRunning = false;
 
   @override
   TaskMatrixState build() {
@@ -71,10 +90,51 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
     required String content,
     required TaskSource source,
   }) async {
-    if (state.isProcessing) {
-      return;
+    final clean = content.trim();
+    if (clean.isEmpty) return;
+
+    final completer = Completer<void>();
+    _queue.add(_AnalysisQueueItem(content: clean, source: source, completer: completer));
+    state = state.copyWith(queueLength: _queue.length);
+    _drainQueue();
+    return completer.future;
+  }
+
+  Future<void> _drainQueue() async {
+    if (_isWorkerRunning) return;
+    _isWorkerRunning = true;
+
+    while (_queue.isNotEmpty) {
+      final current = _queue.removeAt(0);
+      final remaining = _queue.length;
+      state = state.copyWith(
+        isProcessing: true,
+        queueLength: remaining,
+        statusMessage: remaining > 0
+            ? 'Gemini AI ile analiz ediliyor ($remaining sırada bekliyor)...'
+            : 'Gemini AI ile analiz ediliyor...',
+        errorMessage: null,
+      );
+
+      try {
+        await _executeAnalysis(content: current.content, source: current.source);
+        current.completer.complete();
+      } catch (e, st) {
+        current.completer.completeError(e, st);
+      }
     }
 
+    _isWorkerRunning = false;
+    state = state.copyWith(
+      isProcessing: false,
+      queueLength: 0,
+    );
+  }
+
+  Future<void> _executeAnalysis({
+    required String content,
+    required TaskSource source,
+  }) async {
     final config = ref.read(geminiConfigProvider);
     if (!config.isValid) {
       state = state.copyWith(
@@ -82,12 +142,6 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       );
       return;
     }
-
-    state = state.copyWith(
-      isProcessing: true,
-      statusMessage: 'Analyzing with Gemini AI...',
-      errorMessage: null,
-    );
 
     try {
       final geminiDatasource = GeminiDatasource(
@@ -128,24 +182,26 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
         finalizedTasks.add(task.copyWith(calendarEvent: currentEvent));
       }
 
-      await _repository.saveTasks(finalizedTasks);
-      await loadTasks();
+      if (finalizedTasks.isNotEmpty) {
+        await _repository.saveTasks(finalizedTasks);
+        await loadTasks();
+      }
 
       state = state.copyWith(
-        isProcessing: false,
         lastSummary: response.summary,
-        statusMessage: 'Processed ${finalizedTasks.length} task(s) successfully.',
+        statusMessage: finalizedTasks.isNotEmpty
+            ? '${finalizedTasks.length} görev matrise eklendi.'
+            : (response.summary.isNotEmpty ? response.summary : 'İşlenecek görev bulunamadı.'),
       );
     } catch (e) {
       String msg = 'AI Processing Error: $e';
       final errLower = e.toString().toLowerCase();
       if (errLower.contains('503') || errLower.contains('high demand') || errLower.contains('unavailable')) {
-        msg = 'Google Gemini sunucularında anlık aşırı yoğunluk yaşanıyor (503). Sistem otomatik yedek modellere bağlandı, lütfen birkaç saniye sonra tekrar deneyin.';
+        msg = 'Google Gemini sunucularında anlık aşırı yoğunluk yaşanıyor (503). Sistem otomatik olarak yeniden deneyecek.';
       } else if (errLower.contains('quota') || errLower.contains('limit')) {
-        msg = 'Gemini API dakikalık kota sınırına ulaşıldı (Free Tier limit). Lütfen 15 saniye bekleyin veya Ayarlar\'dan daha yüksek kotalı gemini-2.5-flash modeline geçin.';
+        msg = 'Gemini API dakikalık kota sınırına ulaşıldı (Free Tier limit). Lütfen 15 saniye bekleyin.';
       }
       state = state.copyWith(
-        isProcessing: false,
         errorMessage: msg,
       );
     }
