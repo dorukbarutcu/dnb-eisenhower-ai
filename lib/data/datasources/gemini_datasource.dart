@@ -8,7 +8,7 @@ class GeminiDatasource {
 
   GeminiDatasource({
     required this.apiKey,
-    this.modelName = 'gemini-1.5-flash',
+    this.modelName = 'gemini-2.5-flash',
   });
 
   static const String _systemInstruction = '''

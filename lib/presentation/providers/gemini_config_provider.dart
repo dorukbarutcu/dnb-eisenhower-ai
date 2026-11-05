@@ -7,7 +7,7 @@ class GeminiConfig {
 
   const GeminiConfig({
     required this.apiKey,
-    this.modelName = 'gemini-1.5-flash',
+    this.modelName = 'gemini-2.5-flash',
   });
 
   bool get isValid => apiKey.trim().isNotEmpty;
@@ -21,13 +21,17 @@ class GeminiConfigNotifier extends Notifier<GeminiConfig> {
   @override
   GeminiConfig build() {
     Future.microtask(_load);
-    return const GeminiConfig(apiKey: '');
+    return const GeminiConfig(apiKey: '', modelName: 'gemini-2.5-flash');
   }
 
   Future<void> _load() async {
     final box = await Hive.openBox(_boxName);
     final key = box.get(_keyApi, defaultValue: '') as String;
-    final model = box.get(_keyModel, defaultValue: 'gemini-1.5-flash') as String;
+    var model = box.get(_keyModel, defaultValue: 'gemini-2.5-flash') as String;
+    if (model.contains('1.5')) {
+      model = 'gemini-2.5-flash';
+      await box.put(_keyModel, model);
+    }
     state = GeminiConfig(apiKey: key, modelName: model);
   }
 
