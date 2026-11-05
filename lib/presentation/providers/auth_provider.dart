@@ -15,7 +15,7 @@ class GoogleAuthState {
     this.user,
     this.isLoading = false,
     this.errorMessage,
-    this.androidClientId = '532970182801-677hd3uf84qdgt8ar6ltnqneja7l2pq9.apps.googleusercontent.com',
+    this.androidClientId = '',
     this.serverClientId = '',
   });
 
@@ -43,8 +43,6 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
   static const String _boxName = 'app_settings';
   static const String _keyAndroidClientId = 'google_android_client_id';
   static const String _keyServerClientId = 'google_server_client_id';
-  static const String _defaultAndroidClientId =
-      '532970182801-677hd3uf84qdgt8ar6ltnqneja7l2pq9.apps.googleusercontent.com';
 
   @override
   GoogleAuthState build() {
@@ -54,8 +52,7 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
 
   Future<void> _init() async {
     final box = await Hive.openBox(_boxName);
-    final savedAndroidId =
-        box.get(_keyAndroidClientId, defaultValue: _defaultAndroidClientId) as String;
+    final savedAndroidId = box.get(_keyAndroidClientId, defaultValue: '') as String;
     final savedServerId = box.get(_keyServerClientId, defaultValue: '') as String;
 
     state = state.copyWith(
@@ -64,7 +61,7 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
     );
 
     await _service.initialize(
-      clientId: savedAndroidId,
+      clientId: savedAndroidId.isNotEmpty ? savedAndroidId : null,
       serverClientId: savedServerId.isNotEmpty ? savedServerId : null,
     );
     state = state.copyWith(
@@ -96,12 +93,20 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
     );
 
     await _service.initialize(
-      clientId: state.androidClientId,
+      clientId: state.androidClientId.isNotEmpty ? state.androidClientId : null,
       serverClientId: state.serverClientId.isNotEmpty ? state.serverClientId : null,
     );
   }
 
   Future<void> signIn() async {
+    if (state.serverClientId.trim().isEmpty) {
+      state = state.copyWith(
+        errorMessage:
+            'Giriş yapabilmek için lütfen önce Google Cloud Console\'dan aldığınız Web Client ID (serverClientId) bilgisini girip "Kaydet"e basın.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final user = await _service.signIn(
@@ -119,7 +124,7 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
           readableError.contains('10') ||
           readableError.contains('Developer Error')) {
         readableError =
-            'Google Cloud OAuth yapılandırma hatası: SHA-1 parmak izi veya Web Client ID uyuşmuyor.';
+            'Google Cloud OAuth yapılandırma hatası: SHA-1 parmak izi veya Web Client ID uyuşmuyor. Paket adının "com.eisenhower.eisenhower_ai" olduğundan emin olun.';
       } else if (readableError.contains('canceled') || readableError.contains('12501')) {
         readableError = 'Giriş işlemi kullanıcı tarafından iptal edildi.';
       }

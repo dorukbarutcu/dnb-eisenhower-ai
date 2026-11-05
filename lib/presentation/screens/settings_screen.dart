@@ -17,6 +17,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _apiKeyController;
   late final TextEditingController _androidClientIdController;
   late final TextEditingController _serverClientIdController;
+  bool _showIntroGuide = false;
 
   static const String appPackageName = 'com.eisenhower.eisenhower_ai';
   static const String debugSha1 = 'B3:7B:7A:6C:5A:E9:34:D2:D5:1C:93:64:56:0F:EE:C3:25:48:CC:22';
@@ -47,13 +48,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings & Integrations'),
+        title: const Text('Ayarlar & Entegrasyonlar'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Gemini API Configuration
-          _buildSectionHeader('Intelligence Engine (Gemini API)'),
+          _buildSectionHeader('Yapay Zeka Motoru (Google Gemini)'),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -67,8 +68,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   controller: _apiKeyController,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: 'Gemini API Key',
-                    hintText: 'Enter your AI Studio API Key',
+                    labelText: 'Gemini API Anahtarı',
+                    hintText: 'AI Studio API Anahtarınızı girin',
                     prefixIcon: Icon(Icons.key, color: AppColors.q2Blue),
                   ),
                 ),
@@ -76,7 +77,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: geminiConfig.modelName,
                   decoration: const InputDecoration(
-                    labelText: 'Model Selection',
+                    labelText: 'Model Seçimi',
                     prefixIcon: Icon(Icons.psychology, color: AppColors.q2Blue),
                   ),
                   dropdownColor: AppColors.surface,
@@ -117,11 +118,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Gemini settings saved!')),
+                          const SnackBar(content: Text('Gemini ayarları kaydedildi!')),
                         );
                       }
                     },
-                    child: const Text('Save Gemini Configuration'),
+                    child: const Text('Gemini Ayarlarını Kaydet'),
                   ),
                 ),
               ],
@@ -130,7 +131,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // Google Account Integration (Gmail & Calendar)
-          _buildSectionHeader('Google Services (Gmail & Calendar)'),
+          _buildSectionHeader('Google Servisleri (Gmail & Google Calendar)'),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -164,6 +165,84 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                 ],
+
+                // Kurulum Rehberi Butonu (Introduction)
+                InkWell(
+                  onTap: () => setState(() => _showIntroGuide = !_showIntroGuide),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.q2Blue.withAlpha(25),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.q2Blue.withAlpha(80)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.menu_book_rounded, color: AppColors.q2Blue, size: 20),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Google Cloud Kurulum Rehberi (Adım Adım)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.q2Blue,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          _showIntroGuide ? Icons.expand_less : Icons.expand_more,
+                          color: AppColors.q2Blue,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                if (_showIntroGuide) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildStepItem(
+                          step: '1',
+                          title: 'Google Cloud Projesi',
+                          desc: 'console.cloud.google.com üzerinde yeni bir proje açın veya mevcut projenizi seçin.',
+                        ),
+                        _buildStepItem(
+                          step: '2',
+                          title: 'API\'leri Etkinleştirin',
+                          desc: 'API & Services > Library bölümünden "Google Calendar API" ve "Gmail API" servislerini aktif edin.',
+                        ),
+                        _buildStepItem(
+                          step: '3',
+                          title: 'Android Client ID Oluşturun',
+                          desc: 'Credentials > Create Credentials > OAuth client ID > Tür: Android seçin. Aşağıdaki Paket Adı ve SHA-1 parmak izini yapıştırın. Oluşan Client ID\'yi kopyalayın.',
+                        ),
+                        _buildStepItem(
+                          step: '4',
+                          title: 'Web Application Client ID Oluşturun (Zorunlu)',
+                          desc: 'Yine Credentials > Create Credentials > OAuth client ID > Tür: Web application seçin. Oluşan Client ID\'yi kopyalayın (serverClientId olarak kullanılır).',
+                        ),
+                        _buildStepItem(
+                          step: '5',
+                          title: 'ID\'leri Aşağıya Yapıştırıp Kaydedin',
+                          desc: 'Her iki ID\'yi aşağıdaki ilgili alanlara yapıştırıp "Kaydet"e basın, ardından giriş yapın.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
                 if (authState.isAuthenticated) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -174,7 +253,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    title: Text(authState.user?.displayName ?? 'Connected User'),
+                    title: Text(authState.user?.displayName ?? 'Bağlı Hesap'),
                     subtitle: Text(authState.user?.email ?? ''),
                     trailing: const Icon(Icons.check_circle, color: Colors.green),
                   ),
@@ -184,20 +263,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent),
                       onPressed: () => ref.read(googleAuthProvider.notifier).signOut(),
-                      child: const Text('Disconnect Google Account'),
+                      child: const Text('Google Hesabının Bağlantısını Kes'),
                     ),
                   ),
                 ] else ...[
-                  const Text(
-                    'Android Credential Manager üzerinden OAuth doğrulaması için Android Client ID ve aynı projedeki Web Client ID (serverClientId) kullanılır.',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 14),
                   TextField(
                     controller: _androidClientIdController,
                     decoration: const InputDecoration(
-                      labelText: 'Android Client ID',
-                      hintText: '532970182801-xxx.apps.googleusercontent.com',
+                      labelText: 'Android Client ID (Opsiyonel)',
+                      hintText: 'xxxxxx.apps.googleusercontent.com',
                       prefixIcon: Icon(Icons.android, color: Colors.green),
                     ),
                   ),
@@ -206,14 +280,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     controller: _serverClientIdController,
                     decoration: const InputDecoration(
                       labelText: 'Web Client ID (serverClientId - Zorunlu)',
-                      hintText: '532970182801-yyy.apps.googleusercontent.com',
+                      hintText: 'yyyyyy.apps.googleusercontent.com',
                       prefixIcon: Icon(Icons.language, color: AppColors.q2Blue),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('Kimlik Bilgilerini Kaydet'),
                       onPressed: () async {
                         final androidId = _androidClientIdController.text.trim();
                         final serverId = _serverClientIdController.text.trim();
@@ -223,11 +299,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Client ID bilgileri kaydedildi.')),
+                            const SnackBar(content: Text('Kimlik bilgileri yerel hafızaya kaydedildi!')),
                           );
                         }
                       },
-                      child: const Text('Kimlik Bilgilerini Kaydet'),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -276,7 +351,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // Android Notification Listener Service
-          _buildSectionHeader('Android Notification Harvester'),
+          _buildSectionHeader('Android Bildirim Dinleyicisi'),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -299,14 +374,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         children: [
                           Text(
                             notifState.hasPermission
-                                ? 'Notification Access Granted'
-                                : 'Notification Access Required',
+                                ? 'Bildirim Erişimi Aktif'
+                                : 'Bildirim Erişimi Gerekli',
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                           ),
                           Text(
                             notifState.hasPermission
-                                ? 'Actively intercepting WhatsApp and Telegram notifications'
-                                : 'Grant notification listener permission in Android settings',
+                                ? 'WhatsApp ve Telegram bildirimleri dinleniyor'
+                                : 'Android ayarlarından bildirim erişim iznini onaylayın',
                             style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                           ),
                         ],
@@ -319,13 +394,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('Open Android Notification Settings'),
+                    label: const Text('Android Bildirim Ayarlarını Aç'),
                     onPressed: () async {
                       await ref.read(notificationListenerProvider.notifier).openSettings();
                       await ref.read(notificationListenerProvider.notifier).checkPermission();
                     },
                   ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem({required String step, required String title, required String desc}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.q2Blue,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              step,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(desc, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
               ],
             ),
           ),
