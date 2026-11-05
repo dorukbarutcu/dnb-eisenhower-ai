@@ -65,15 +65,6 @@ You MUST output ONLY valid JSON matching this schema:
     Function(String status)? onProgress,
   }) async {
     final now = currentDateTime ?? DateTime.now();
-    final client = GenerativeModel(
-      model: modelName,
-      apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-      ),
-      systemInstruction: Content.system(_systemInstruction),
-    );
 
     final promptText = '''
 Current Local Time: ${now.toIso8601String()}
@@ -82,10 +73,34 @@ Raw Communication / Data:
 $rawContent
 ''';
 
-    int attempts = 0;
-    while (attempts < 3) {
-      attempts++;
+    // Model cascade list: starts with selected model, then fails over to stable alternatives
+    final modelsToTry = <String>[modelName];
+    for (final fallback in ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']) {
+      if (!modelsToTry.contains(fallback)) {
+        modelsToTry.add(fallback);
+      }
+    }
+
+    Exception? lastError;
+
+    for (var i = 0; i < modelsToTry.length; i++) {
+      final currentModel = modelsToTry[i];
+
+      final client = GenerativeModel(
+        model: currentModel,
+        apiKey: apiKey,
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+          temperature: 0.2,
+        ),
+        systemInstruction: Content.system(_systemInstruction),
+      );
+
       try {
+        if (i > 0) {
+          onProgress?.call('Yoğunluk nedeniyle "$currentModel" modeline geçildi...');
+        }
+
         final response = await client.generateContent([Content.text(promptText)]);
         final responseText = response.text;
 
@@ -108,26 +123,42 @@ $rawContent
         final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
         return GeminiResponseModel.fromJson(decoded);
       } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
         final errStr = e.toString().toLowerCase();
+
+        final is503Overload = errStr.contains('503') ||
+            errStr.contains('high demand') ||
+            errStr.contains('unavailable');
+
         final isQuotaError = errStr.contains('quota') ||
             errStr.contains('rate') ||
-            errStr.contains('429') ||
-            errStr.contains('limit');
+            errStr.contains('429');
 
-        if (isQuotaError && attempts < 3) {
-          final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
-          final seconds = match != null
-              ? (double.tryParse(match.group(1) ?? '12')?.ceil() ?? 12) + 2
-              : 12;
-
-          onProgress?.call('Kota sınırına ulaşıldı, $seconds saniye sonra otomatik tekrar deneniyor ($attempts/3)...');
-          await Future.delayed(Duration(seconds: seconds));
-          continue;
+        if (is503Overload || isQuotaError) {
+          // If there is another model in the cascade, try it immediately
+          if (i < modelsToTry.length - 1) {
+            final nextModel = modelsToTry[i + 1];
+            onProgress?.call(
+              'Model "$currentModel" yoğun (503/Kota). Otomatik olarak "$nextModel" deneniyor...',
+            );
+            await Future.delayed(const Duration(milliseconds: 500));
+            continue;
+          } else {
+            // All models tried, wait for rate limit cooldown if given
+            final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
+            final seconds = match != null
+                ? (double.tryParse(match.group(1) ?? '10')?.ceil() ?? 10) + 1
+                : 5;
+            onProgress?.call('Sunucular yoğun, $seconds saniye sonra tekrar deneniyor...');
+            await Future.delayed(Duration(seconds: seconds));
+          }
+        } else {
+          // Non-recoverable error
+          rethrow;
         }
-        rethrow;
       }
     }
 
-    throw Exception('Gemini API isteği 3 deneme sonrasında zaman aşımına uğradı.');
+    throw lastError ?? Exception('Tüm yapay zeka modelleri denendi ancak yanıt alınamadı.');
   }
 }

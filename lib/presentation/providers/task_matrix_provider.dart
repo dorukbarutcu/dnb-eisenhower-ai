@@ -134,9 +134,11 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       );
     } catch (e) {
       String msg = 'AI Processing Error: $e';
-      if (e.toString().toLowerCase().contains('quota') ||
-          e.toString().toLowerCase().contains('limit')) {
-        msg = 'Gemini API dakikalık kota sınırına ulaşıldı (Free Tier limit). Lütfen 15 saniye bekleyin veya Ayarlar\'dan daha yüksek kotalı gemini-2.5-flash / gemini-1.5-flash modeline geçin.';
+      final errLower = e.toString().toLowerCase();
+      if (errLower.contains('503') || errLower.contains('high demand') || errLower.contains('unavailable')) {
+        msg = 'Google Gemini sunucularında anlık aşırı yoğunluk yaşanıyor (503). Sistem otomatik yedek modellere bağlandı, lütfen birkaç saniye sonra tekrar deneyin.';
+      } else if (errLower.contains('quota') || errLower.contains('limit')) {
+        msg = 'Gemini API dakikalık kota sınırına ulaşıldı (Free Tier limit). Lütfen 15 saniye bekleyin veya Ayarlar\'dan daha yüksek kotalı gemini-2.5-flash modeline geçin.';
       }
       state = state.copyWith(
         isProcessing: false,

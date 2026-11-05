@@ -87,12 +87,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Text('gemini-3.8-flash (Gemini 3.8 Flash - Önerilen)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-3.8-pro',
-                      child: Text('gemini-3.8-pro (Gemini 3.8 Pro - Yüksek Akıl Yürütme)'),
+                      value: 'gemini-2.5-flash',
+                      child: Text('gemini-2.5-flash (Gemini 2.5 Flash - Kararlı)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-2.5-flash',
-                      child: Text('gemini-2.5-flash (Gemini 2.5 Flash)'),
+                      value: 'gemini-1.5-flash',
+                      child: Text('gemini-1.5-flash (Gemini 1.5 Flash - Yüksek Kota)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemini-3.8-pro',
+                      child: Text('gemini-3.8-pro (Gemini 3.8 Pro - Yüksek Akıl Yürütme)'),
                     ),
                   ],
                   onChanged: (val) {
