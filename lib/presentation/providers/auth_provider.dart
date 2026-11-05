@@ -7,6 +7,7 @@ import '../../core/network/google_auth_client.dart';
 class GoogleAuthState {
   final GoogleSignInAccount? user;
   final bool isLoading;
+  final bool hasScopeAuthorization;
   final String? errorMessage;
   final String androidClientId;
   final String serverClientId;
@@ -14,6 +15,7 @@ class GoogleAuthState {
   const GoogleAuthState({
     this.user,
     this.isLoading = false,
+    this.hasScopeAuthorization = false,
     this.errorMessage,
     this.androidClientId = '',
     this.serverClientId = '',
@@ -24,6 +26,7 @@ class GoogleAuthState {
   GoogleAuthState copyWith({
     GoogleSignInAccount? user,
     bool? isLoading,
+    bool? hasScopeAuthorization,
     String? errorMessage,
     String? androidClientId,
     String? serverClientId,
@@ -31,6 +34,7 @@ class GoogleAuthState {
     return GoogleAuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
+      hasScopeAuthorization: hasScopeAuthorization ?? this.hasScopeAuthorization,
       errorMessage: errorMessage,
       androidClientId: androidClientId ?? this.androidClientId,
       serverClientId: serverClientId ?? this.serverClientId,
@@ -66,11 +70,16 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
     );
     state = state.copyWith(
       user: _service.currentUser,
+      hasScopeAuthorization: _service.hasScopeAuthorization,
       isLoading: false,
     );
 
     _service.onAuthStateChanged.listen((user) {
-      state = state.copyWith(user: user, isLoading: false);
+      state = state.copyWith(
+        user: user,
+        hasScopeAuthorization: _service.hasScopeAuthorization,
+        isLoading: false,
+      );
     });
   }
 
@@ -113,7 +122,11 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
         clientId: state.androidClientId.isNotEmpty ? state.androidClientId : null,
         serverClientId: state.serverClientId.isNotEmpty ? state.serverClientId : null,
       );
-      state = state.copyWith(user: user, isLoading: false);
+      state = state.copyWith(
+        user: user,
+        hasScopeAuthorization: _service.hasScopeAuthorization,
+        isLoading: false,
+      );
     } catch (e) {
       String readableError = e.toString();
       if (readableError.contains('MISSING_SERVER_CLIENT_ID') ||
@@ -135,14 +148,32 @@ class GoogleAuthNotifier extends Notifier<GoogleAuthState> {
     }
   }
 
+  Future<bool> requestScopes() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final success = await _service.requestScopeAuthorization();
+      state = state.copyWith(
+        hasScopeAuthorization: success,
+        isLoading: false,
+      );
+      return success;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Gmail/Takvim yetkilendirme hatası: $e',
+      );
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     state = state.copyWith(isLoading: true);
     await _service.signOut();
-    state = state.copyWith(user: null, isLoading: false);
+    state = state.copyWith(user: null, hasScopeAuthorization: false, isLoading: false);
   }
 
-  Future<auth.AuthClient?> getAuthenticatedClient() async {
-    return await _service.getAuthenticatedClient();
+  Future<auth.AuthClient?> getAuthenticatedClient({bool promptIfUnauthorized = true}) async {
+    return await _service.getAuthenticatedClient(promptIfUnauthorized: promptIfUnauthorized);
   }
 }
 

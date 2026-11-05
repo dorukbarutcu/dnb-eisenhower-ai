@@ -25,6 +25,7 @@ class GoogleAuthClientService {
 
   GoogleSignInAccount? get currentUser => _currentUser;
   bool get isSignedIn => _currentUser != null;
+  bool get hasScopeAuthorization => _authorization != null;
 
   final _authChangeController = StreamController<GoogleSignInAccount?>.broadcast();
   Stream<GoogleSignInAccount?> get onAuthStateChanged => _authChangeController.stream;
@@ -76,13 +77,31 @@ class GoogleAuthClientService {
         throw Exception('Bu cihazda Google Sign-In authenticate akışı desteklenmiyor.');
       }
 
-      final account = await _googleSignIn.authenticate();
+      final account = await _googleSignIn.authenticate(scopeHint: scopes);
       _currentUser = account;
       _authChangeController.add(_currentUser);
-      await getAuthorization();
+
+      // Prompt user for Gmail and Calendar scopes immediately
+      try {
+        _authorization = await account.authorizationClient.authorizeScopes(scopes);
+      } catch (e) {
+        debugPrint('Authorize scopes during sign in prompt: $e');
+      }
+
       return account;
     } catch (e) {
       debugPrint('Sign-in error: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> requestScopeAuthorization() async {
+    if (_currentUser == null) return false;
+    try {
+      _authorization = await _currentUser!.authorizationClient.authorizeScopes(scopes);
+      return _authorization != null;
+    } catch (e) {
+      debugPrint('Explicit authorizeScopes request failed: $e');
       rethrow;
     }
   }
@@ -100,20 +119,30 @@ class GoogleAuthClientService {
     _authChangeController.add(null);
   }
 
-  Future<GoogleSignInClientAuthorization?> getAuthorization() async {
+  Future<GoogleSignInClientAuthorization?> getAuthorization({bool promptIfUnauthorized = true}) async {
     if (_currentUser == null) return null;
     try {
-      _authorization = await _currentUser!.authorizationClient.authorizationForScopes(scopes)
-          ?? await _currentUser!.authorizationClient.authorizeScopes(scopes);
+      if (_authorization != null) return _authorization;
+
+      _authorization = await _currentUser!.authorizationClient.authorizationForScopes(scopes);
+      if (_authorization == null && promptIfUnauthorized) {
+        _authorization = await _currentUser!.authorizationClient.authorizeScopes(scopes);
+      }
       return _authorization;
     } catch (e) {
       debugPrint('Authorization error: $e');
+      if (promptIfUnauthorized) {
+        try {
+          _authorization = await _currentUser!.authorizationClient.authorizeScopes(scopes);
+          return _authorization;
+        } catch (_) {}
+      }
       return null;
     }
   }
 
-  Future<auth.AuthClient?> getAuthenticatedClient() async {
-    final authz = _authorization ?? await getAuthorization();
+  Future<auth.AuthClient?> getAuthenticatedClient({bool promptIfUnauthorized = true}) async {
+    final authz = await getAuthorization(promptIfUnauthorized: promptIfUnauthorized);
     if (authz == null) return null;
     return authz.authClient(scopes: scopes);
   }

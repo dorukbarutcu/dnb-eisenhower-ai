@@ -145,13 +145,22 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
   }
 
   Future<void> fetchAndProcessGmail() async {
-    final authClient = await ref.read(googleAuthProvider.notifier).getAuthenticatedClient();
+    var authClient = await ref.read(googleAuthProvider.notifier).getAuthenticatedClient();
     if (authClient == null) {
-      state = state.copyWith(errorMessage: 'Please sign in with Google to read Gmail.');
+      final authorized = await ref.read(googleAuthProvider.notifier).requestScopes();
+      if (authorized) {
+        authClient = await ref.read(googleAuthProvider.notifier).getAuthenticatedClient();
+      }
+    }
+
+    if (authClient == null) {
+      state = state.copyWith(
+        errorMessage: 'Gmail erişim izni verilmedi. Lütfen Ayarlar > "Gmail ve Takvim İzinlerini Onayla" butonuna dokunun.',
+      );
       return;
     }
 
-    state = state.copyWith(isProcessing: true, statusMessage: 'Fetching unread Gmail messages...');
+    state = state.copyWith(isProcessing: true, statusMessage: 'Okunmamış Gmail iletileri taranıyor...');
 
     try {
       final gmailDatasource = GmailRemoteDatasource(authClient);
@@ -160,7 +169,7 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       if (unread.isEmpty) {
         state = state.copyWith(
           isProcessing: false,
-          statusMessage: 'No unread emails found.',
+          statusMessage: 'Okunmamış önemli e-posta bulunamadı.',
         );
         return;
       }
@@ -168,10 +177,18 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       final combined = unread.map((e) => e.toPromptSummary()).join('\n---\n');
       await processInputContent(content: combined, source: TaskSource.gmail);
     } catch (e) {
-      state = state.copyWith(
-        isProcessing: false,
-        errorMessage: 'Gmail Fetch Error: $e',
-      );
+      if (e.toString().contains('insufficient_scope')) {
+        state = state.copyWith(
+          isProcessing: false,
+          errorMessage: 'Gmail yetkisi eksik. Lütfen açılan onay ekranında "İzin Ver (Allow)" seçeneğini onaylayın.',
+        );
+        await ref.read(googleAuthProvider.notifier).requestScopes();
+      } else {
+        state = state.copyWith(
+          isProcessing: false,
+          errorMessage: 'Gmail Hatası: $e',
+        );
+      }
     }
   }
 

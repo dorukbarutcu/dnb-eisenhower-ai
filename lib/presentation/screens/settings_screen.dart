@@ -218,8 +218,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                         _buildStepItem(
                           step: '2',
-                          title: 'API\'leri Etkinleştirin',
-                          desc: 'API & Services > Library bölümünden "Google Calendar API" ve "Gmail API" servislerini aktif edin.',
+                          title: 'API ve OAuth Kapsamlarını (Scopes) Etkinleştirin',
+                          desc: '1) API Library\'den "Google Calendar API" ve "Gmail API" servislerini açın.\n2) "OAuth consent screen > Scopes" bölümünden ".../auth/gmail.readonly" ve ".../auth/calendar.events" kapsamlarını ekleyin.\n3) Test users bölümüne kendi Gmail adresinizi ekleyin.',
                         ),
                         _buildStepItem(
                           step: '3',
@@ -258,6 +258,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     trailing: const Icon(Icons.check_circle, color: Colors.green),
                   ),
                   const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.q2Blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.security_update_good, size: 18),
+                      label: const Text('Gmail & Takvim Yetkisini Onayla'),
+                      onPressed: () async {
+                        final success = await ref.read(googleAuthProvider.notifier).requestScopes();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(success
+                                  ? 'Gmail ve Takvim yetkisi başarıyla verildi!'
+                                  : 'Yetkilendirme onaylanmadı.'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
