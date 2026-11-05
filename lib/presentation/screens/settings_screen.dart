@@ -15,6 +15,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _apiKeyController;
+  late final TextEditingController _androidClientIdController;
   late final TextEditingController _serverClientIdController;
 
   static const String appPackageName = 'com.eisenhower.eisenhower_ai';
@@ -26,12 +27,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final config = ref.read(geminiConfigProvider);
     final authState = ref.read(googleAuthProvider);
     _apiKeyController = TextEditingController(text: config.apiKey);
+    _androidClientIdController = TextEditingController(text: authState.androidClientId);
     _serverClientIdController = TextEditingController(text: authState.serverClientId);
   }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _androidClientIdController.dispose();
     _serverClientIdController.dispose();
     super.dispose();
   }
@@ -186,16 +189,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ] else ...[
                   const Text(
-                    'Android Credential Manager üzerinden Gmail ve Calendar API erişimi için Google Cloud Console Web Client ID (serverClientId) gereklidir.',
+                    'Android Credential Manager üzerinden OAuth doğrulaması için Android Client ID ve aynı projedeki Web Client ID (serverClientId) kullanılır.',
                     style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
                   TextField(
+                    controller: _androidClientIdController,
+                    decoration: const InputDecoration(
+                      labelText: 'Android Client ID',
+                      hintText: '532970182801-xxx.apps.googleusercontent.com',
+                      prefixIcon: Icon(Icons.android, color: Colors.green),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
                     controller: _serverClientIdController,
                     decoration: const InputDecoration(
-                      labelText: 'Web Client ID (serverClientId)',
-                      hintText: 'xxxxxx.apps.googleusercontent.com',
-                      prefixIcon: Icon(Icons.security, color: AppColors.q2Blue),
+                      labelText: 'Web Client ID (serverClientId - Zorunlu)',
+                      hintText: '532970182801-yyy.apps.googleusercontent.com',
+                      prefixIcon: Icon(Icons.language, color: AppColors.q2Blue),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -203,15 +215,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () async {
-                        final id = _serverClientIdController.text.trim();
-                        await ref.read(googleAuthProvider.notifier).updateServerClientId(id);
+                        final androidId = _androidClientIdController.text.trim();
+                        final serverId = _serverClientIdController.text.trim();
+                        await ref.read(googleAuthProvider.notifier).updateCredentials(
+                              androidClientId: androidId,
+                              serverClientId: serverId,
+                            );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Client ID kaydedildi.')),
+                            const SnackBar(content: Text('Client ID bilgileri kaydedildi.')),
                           );
                         }
                       },
-                      child: const Text('Kaydet'),
+                      child: const Text('Kimlik Bilgilerini Kaydet'),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -243,8 +259,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onPressed: authState.isLoading
                           ? null
                           : () {
-                              final id = _serverClientIdController.text.trim();
-                              ref.read(googleAuthProvider.notifier).updateServerClientId(id);
+                              final androidId = _androidClientIdController.text.trim();
+                              final serverId = _serverClientIdController.text.trim();
+                              ref.read(googleAuthProvider.notifier).updateCredentials(
+                                    androidClientId: androidId,
+                                    serverClientId: serverId,
+                                  );
                               ref.read(googleAuthProvider.notifier).signIn();
                             },
                     ),

@@ -20,6 +20,7 @@ class GoogleAuthClientService {
   GoogleSignInAccount? _currentUser;
   GoogleSignInClientAuthorization? _authorization;
   bool _initialized = false;
+  String? _lastClientId;
   String? _lastServerClientId;
 
   GoogleSignInAccount? get currentUser => _currentUser;
@@ -28,16 +29,24 @@ class GoogleAuthClientService {
   final _authChangeController = StreamController<GoogleSignInAccount?>.broadcast();
   Stream<GoogleSignInAccount?> get onAuthStateChanged => _authChangeController.stream;
 
-  Future<void> initialize({String? serverClientId}) async {
+  Future<void> initialize({String? clientId, String? serverClientId}) async {
+    final cleanClientId = clientId?.trim().isEmpty == true ? null : clientId?.trim();
     final cleanServerClientId = serverClientId?.trim().isEmpty == true ? null : serverClientId?.trim();
 
-    if (_initialized && _lastServerClientId == cleanServerClientId) {
+    if (_initialized &&
+        _lastClientId == cleanClientId &&
+        _lastServerClientId == cleanServerClientId) {
       return;
     }
 
     try {
+      _lastClientId = cleanClientId;
       _lastServerClientId = cleanServerClientId;
-      await _googleSignIn.initialize(serverClientId: cleanServerClientId);
+
+      await _googleSignIn.initialize(
+        clientId: cleanClientId,
+        serverClientId: cleanServerClientId,
+      );
 
       _googleSignIn.authenticationEvents.listen((event) {
         switch (event) {
@@ -59,12 +68,12 @@ class GoogleAuthClientService {
     }
   }
 
-  Future<GoogleSignInAccount?> signIn({String? serverClientId}) async {
+  Future<GoogleSignInAccount?> signIn({String? clientId, String? serverClientId}) async {
     try {
-      await initialize(serverClientId: serverClientId);
+      await initialize(clientId: clientId, serverClientId: serverClientId);
 
       if (!_googleSignIn.supportsAuthenticate()) {
-        throw Exception('Google Sign-In authenticate is not supported on this device/platform.');
+        throw Exception('Bu cihazda Google Sign-In authenticate akışı desteklenmiyor.');
       }
 
       final account = await _googleSignIn.authenticate();
