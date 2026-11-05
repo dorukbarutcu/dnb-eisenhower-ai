@@ -78,10 +78,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro']
-                          .contains(geminiConfig.modelName)
+                  initialValue: [
+                    'gemini-3.6-flash',
+                    'gemini-3.5-flash',
+                    'gemini-3.5-flash-lite',
+                    'gemini-3.1-flash-lite',
+                    'gemini-3-flash-preview',
+                    'gemma-4-31b-it',
+                  ].contains(geminiConfig.modelName)
                       ? geminiConfig.modelName
-                      : 'gemini-2.5-flash',
+                      : 'gemini-3.6-flash',
                   decoration: const InputDecoration(
                     labelText: 'Model Seçimi',
                     prefixIcon: Icon(Icons.psychology, color: AppColors.q2Blue),
@@ -89,20 +95,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   dropdownColor: AppColors.surface,
                   items: const [
                     DropdownMenuItem(
-                      value: 'gemini-2.5-flash',
-                      child: Text('gemini-2.5-flash (En Yeni & Önerilen)'),
+                      value: 'gemini-3.6-flash',
+                      child: Text('gemini-3.6-flash (Aktif & Önerilen)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-2.0-flash',
-                      child: Text('gemini-2.0-flash (Hızlı & Kararlı)'),
+                      value: 'gemini-3.5-flash',
+                      child: Text('gemini-3.5-flash (Yüksek Hız & Kararlı)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-1.5-flash',
-                      child: Text('gemini-1.5-flash (Yüksek Kota & Kararlı)'),
+                      value: 'gemini-3.5-flash-lite',
+                      child: Text('gemini-3.5-flash-lite (Hızlı & Yüksek Kota)'),
                     ),
                     DropdownMenuItem(
-                      value: 'gemini-2.5-pro',
-                      child: Text('gemini-2.5-pro (Gelişmiş Akıl Yürütme)'),
+                      value: 'gemini-3.1-flash-lite',
+                      child: Text('gemini-3.1-flash-lite (Kararlı Yedek)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemini-3-flash-preview',
+                      child: Text('gemini-3-flash-preview (Önizleme)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemma-4-31b-it',
+                      child: Text('gemma-4-31b-it (Sınırsız Kota / Açık Model)'),
                     ),
                   ],
                   onChanged: (val) {
@@ -538,7 +552,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
-                            'Mevcut Sürüm: v1.0.0',
+                            'Mevcut Sürüm: v1.0.1',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                         ),

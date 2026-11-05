@@ -20,7 +20,7 @@ class GitHubReleaseInfo {
 }
 
 class GitHubUpdaterService {
-  static const String currentVersion = '1.0.0';
+  static const String currentVersion = '1.0.1';
   static const String repoOwner = 'dorukbarutcu';
   static const String repoName = 'dnb-eisenhower-ai';
 

@@ -9,13 +9,20 @@ class GeminiDatasource {
 
   GeminiDatasource({
     required this.apiKey,
-    this.modelName = 'gemini-2.5-flash',
+    this.modelName = 'gemini-3.6-flash',
   });
 
   static Future<List<String>> fetchSupportedModels(String apiKey) async {
     final key = apiKey.trim();
     if (key.isEmpty) {
-      return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro'];
+      return [
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-3-flash-preview',
+        'gemma-4-31b-it',
+      ];
     }
 
     try {
@@ -36,17 +43,13 @@ class GeminiDatasource {
             if (methods != null && methods.contains('generateContent')) {
               var name = m['name']?.toString() ?? '';
               if (name.startsWith('models/')) name = name.substring(7);
-              if (name.contains('gemini') && !name.contains('embedding') && !name.contains('vision') && !name.contains('aqa')) {
+              // Only keep active 3.x flash and gemma models (exclude deprecated 1.x and 2.x)
+              if (!name.contains('1.5') && !name.contains('2.0') && !name.contains('2.5') && !name.contains('embedding') && !name.contains('image') && !name.contains('tts')) {
                 supported.add(name);
               }
             }
           }
           if (supported.isNotEmpty) {
-            supported.sort((a, b) {
-              final aFlash = a.contains('flash') ? 0 : 1;
-              final bFlash = b.contains('flash') ? 0 : 1;
-              return aFlash.compareTo(bFlash);
-            });
             return supported;
           }
         }
@@ -55,7 +58,14 @@ class GeminiDatasource {
       debugPrint('Gemini fetchSupportedModels error: $e');
     }
 
-    return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro'];
+    return [
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3-flash-preview',
+      'gemma-4-31b-it',
+    ];
   }
 
   static const String _systemInstruction = '''
@@ -130,12 +140,17 @@ Return ONLY the raw JSON object. Do not include markdown code fences or any conv
 
     final cleanSelected = modelName.trim().replaceAll('models/', '');
     final modelsToTry = {
-      if (cleanSelected.isNotEmpty && !cleanSelected.contains('3.8')) cleanSelected,
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-2.5-pro',
-      'gemini-1.5-pro',
+      if (cleanSelected.isNotEmpty &&
+          !cleanSelected.contains('2.5') &&
+          !cleanSelected.contains('2.0') &&
+          !cleanSelected.contains('1.5'))
+        cleanSelected,
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-3-flash-preview',
+      'gemma-4-31b-it',
     }.toList();
 
     Exception? lastError;
