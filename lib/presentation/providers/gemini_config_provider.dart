@@ -28,7 +28,7 @@ class GeminiConfigNotifier extends Notifier<GeminiConfig> {
     final box = await Hive.openBox(_boxName);
     final key = box.get(_keyApi, defaultValue: '') as String;
     var model = box.get(_keyModel, defaultValue: 'gemini-3.8-flash') as String;
-    if (model.contains('latest') || model.contains('1.5') || model.contains('2.5')) {
+    if (!model.contains('3.8')) {
       model = 'gemini-3.8-flash';
       await box.put(_keyModel, model);
     }
@@ -38,12 +38,13 @@ class GeminiConfigNotifier extends Notifier<GeminiConfig> {
   Future<void> updateConfig({required String apiKey, String? modelName}) async {
     final box = await Hive.openBox(_boxName);
     await box.put(_keyApi, apiKey);
-    if (modelName != null) {
-      await box.put(_keyModel, modelName);
-    }
+    final chosenModel = (modelName != null && modelName.contains('3.8'))
+        ? modelName
+        : 'gemini-3.8-flash';
+    await box.put(_keyModel, chosenModel);
     state = GeminiConfig(
       apiKey: apiKey,
-      modelName: modelName ?? state.modelName,
+      modelName: chosenModel,
     );
   }
 }

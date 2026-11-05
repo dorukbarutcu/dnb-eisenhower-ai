@@ -71,6 +71,10 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
     required String content,
     required TaskSource source,
   }) async {
+    if (state.isProcessing) {
+      return;
+    }
+
     final config = ref.read(geminiConfigProvider);
     if (!config.isValid) {
       state = state.copyWith(

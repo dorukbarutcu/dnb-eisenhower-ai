@@ -73,92 +73,90 @@ Raw Communication / Data:
 $rawContent
 ''';
 
-    // Model cascade list: starts with selected model, then fails over to stable alternatives
-    final modelsToTry = <String>[modelName];
-    for (final fallback in ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash']) {
-      if (!modelsToTry.contains(fallback)) {
-        modelsToTry.add(fallback);
-      }
-    }
+    // Strictly Gemini 3.8 models supported by current API
+    final cleanSelectedModel = modelName.contains('3.8') ? modelName : 'gemini-3.8-flash';
+    final modelsToTry = <String>[
+      cleanSelectedModel,
+      if (cleanSelectedModel != 'gemini-3.8-flash') 'gemini-3.8-flash',
+      if (cleanSelectedModel != 'gemini-3.8-pro') 'gemini-3.8-pro',
+    ];
 
     Exception? lastError;
 
-    for (var i = 0; i < modelsToTry.length; i++) {
-      final currentModel = modelsToTry[i];
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      for (var i = 0; i < modelsToTry.length; i++) {
+        final currentModel = modelsToTry[i];
 
-      final client = GenerativeModel(
-        model: currentModel,
-        apiKey: apiKey,
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        ),
-        systemInstruction: Content.system(_systemInstruction),
-      );
+        final client = GenerativeModel(
+          model: currentModel,
+          apiKey: apiKey,
+          generationConfig: GenerationConfig(
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          ),
+          systemInstruction: Content.system(_systemInstruction),
+        );
 
-      try {
-        if (i > 0) {
-          onProgress?.call('Yoğunluk nedeniyle "$currentModel" modeline geçildi...');
-        }
-
-        final response = await client.generateContent([Content.text(promptText)]);
-        final responseText = response.text;
-
-        if (responseText == null || responseText.trim().isEmpty) {
-          throw Exception('Gemini API boş yanıt döndürdü.');
-        }
-
-        var cleaned = responseText.trim();
-        if (cleaned.startsWith('```json')) {
-          cleaned = cleaned.substring(7);
-        }
-        if (cleaned.startsWith('```')) {
-          cleaned = cleaned.substring(3);
-        }
-        if (cleaned.endsWith('```')) {
-          cleaned = cleaned.substring(0, cleaned.length - 3);
-        }
-        cleaned = cleaned.trim();
-
-        final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
-        return GeminiResponseModel.fromJson(decoded);
-      } catch (e) {
-        lastError = e is Exception ? e : Exception(e.toString());
-        final errStr = e.toString().toLowerCase();
-
-        final is503Overload = errStr.contains('503') ||
-            errStr.contains('high demand') ||
-            errStr.contains('unavailable');
-
-        final isQuotaError = errStr.contains('quota') ||
-            errStr.contains('rate') ||
-            errStr.contains('429');
-
-        if (is503Overload || isQuotaError) {
-          // If there is another model in the cascade, try it immediately
-          if (i < modelsToTry.length - 1) {
-            final nextModel = modelsToTry[i + 1];
-            onProgress?.call(
-              'Model "$currentModel" yoğun (503/Kota). Otomatik olarak "$nextModel" deneniyor...',
-            );
-            await Future.delayed(const Duration(milliseconds: 500));
-            continue;
-          } else {
-            // All models tried, wait for rate limit cooldown if given
-            final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
-            final seconds = match != null
-                ? (double.tryParse(match.group(1) ?? '10')?.ceil() ?? 10) + 1
-                : 5;
-            onProgress?.call('Sunucular yoğun, $seconds saniye sonra tekrar deneniyor...');
-            await Future.delayed(Duration(seconds: seconds));
+        try {
+          if (attempt > 1 || i > 0) {
+            onProgress?.call('Yapay zeka işliyor ($currentModel - Deneme $attempt/3)...');
           }
-        } else {
-          // Non-recoverable error
-          rethrow;
+
+          final response = await client.generateContent([Content.text(promptText)]);
+          final responseText = response.text;
+
+          if (responseText == null || responseText.trim().isEmpty) {
+            throw Exception('Gemini API boş yanıt döndürdü.');
+          }
+
+          var cleaned = responseText.trim();
+          if (cleaned.startsWith('```json')) {
+            cleaned = cleaned.substring(7);
+          }
+          if (cleaned.startsWith('```')) {
+            cleaned = cleaned.substring(3);
+          }
+          if (cleaned.endsWith('```')) {
+            cleaned = cleaned.substring(0, cleaned.length - 3);
+          }
+          cleaned = cleaned.trim();
+
+          final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
+          return GeminiResponseModel.fromJson(decoded);
+        } catch (e) {
+          lastError = e is Exception ? e : Exception(e.toString());
+          final errStr = e.toString().toLowerCase();
+
+          final is503Overload = errStr.contains('503') ||
+              errStr.contains('high demand') ||
+              errStr.contains('unavailable');
+
+          final isQuotaRateLimit = errStr.contains('quota') ||
+              errStr.contains('rate') ||
+              errStr.contains('429') ||
+              errStr.contains('exceeded');
+
+          if (is503Overload || isQuotaRateLimit) {
+            final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
+            final secondsToWait = match != null
+                ? (double.tryParse(match.group(1) ?? '15')?.ceil() ?? 15) + 1
+                : 15;
+
+            if (attempt < 3) {
+              onProgress?.call(
+                'Sunucu yoğunluğu / kota sınırı. $secondsToWait saniye beklenip tekrar denenecek ($attempt/3)...',
+              );
+              await Future.delayed(Duration(seconds: secondsToWait));
+              break; // Retry outer loop
+            }
+          } else {
+            // Irrecoverable error
+            rethrow;
+          }
         }
       }
     }
 
-    throw lastError ?? Exception('Tüm yapay zeka modelleri denendi ancak yanıt alınamadı.');
+    throw lastError ?? Exception('Gemini 3.8 modelleri yanıt vermedi.');
   }
 }
