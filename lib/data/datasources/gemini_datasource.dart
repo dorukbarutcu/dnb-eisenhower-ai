@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter/foundation.dart';
 import '../models/gemini_response_model.dart';
 
 class GeminiDatasource {
@@ -36,13 +36,12 @@ class GeminiDatasource {
             if (methods != null && methods.contains('generateContent')) {
               var name = m['name']?.toString() ?? '';
               if (name.startsWith('models/')) name = name.substring(7);
-              if (name.contains('gemini') && !name.contains('embedding') && !name.contains('vision')) {
+              if (name.contains('gemini') && !name.contains('embedding') && !name.contains('vision') && !name.contains('aqa')) {
                 supported.add(name);
               }
             }
           }
           if (supported.isNotEmpty) {
-            // Sort flash models to front
             supported.sort((a, b) {
               final aFlash = a.contains('flash') ? 0 : 1;
               final bFlash = b.contains('flash') ? 0 : 1;
@@ -52,7 +51,9 @@ class GeminiDatasource {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Gemini fetchSupportedModels error: $e');
+    }
 
     return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro'];
   }
@@ -117,16 +118,19 @@ You MUST output ONLY valid JSON matching this schema:
     final now = currentDateTime ?? DateTime.now();
 
     final promptText = '''
+$_systemInstruction
+
 Current Local Time: ${now.toIso8601String()}
 Input Source: $source
 Raw Communication / Data:
 $rawContent
+
+Return ONLY the raw JSON object. Do not include markdown code fences or any conversational prefix.
 ''';
 
-    // Clean model selection with intelligent fallback sequence
-    final selected = modelName.trim().replaceAll('models/', '');
+    final cleanSelected = modelName.trim().replaceAll('models/', '');
     final modelsToTry = {
-      if (selected.isNotEmpty && !selected.contains('3.8')) selected,
+      if (cleanSelected.isNotEmpty && !cleanSelected.contains('3.8')) cleanSelected,
       'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
@@ -139,30 +143,21 @@ $rawContent
     for (var attempt = 1; attempt <= 2; attempt++) {
       for (var i = 0; i < modelsToTry.length; i++) {
         final currentModel = modelsToTry[i];
-
-        final client = GenerativeModel(
-          model: currentModel,
-          apiKey: apiKey.trim(),
-          generationConfig: GenerationConfig(
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          ),
-          systemInstruction: Content.system(_systemInstruction),
-        );
+        debugPrint('Gemini REST: trying model $currentModel (attempt $attempt)...');
 
         try {
-          if (attempt > 1 || i > 0) {
-            onProgress?.call('Yapay zeka işliyor ($currentModel)...');
+          onProgress?.call('Yapay zeka işliyor ($currentModel)...');
+
+          final rawText = await _executeGenerateContent(
+            model: currentModel,
+            prompt: promptText,
+          );
+
+          if (rawText.trim().isEmpty) {
+            throw Exception('Gemini boş yanıt döndürdü.');
           }
 
-          final response = await client.generateContent([Content.text(promptText)]);
-          final responseText = response.text;
-
-          if (responseText == null || responseText.trim().isEmpty) {
-            throw Exception('Gemini API boş yanıt döndürdü.');
-          }
-
-          var cleaned = responseText.trim();
+          var cleaned = rawText.trim();
           if (cleaned.startsWith('```json')) {
             cleaned = cleaned.substring(7);
           }
@@ -174,61 +169,112 @@ $rawContent
           }
           cleaned = cleaned.trim();
 
+          // Locate first { and last } to avoid any preamble
+          final firstBrace = cleaned.indexOf('{');
+          final lastBrace = cleaned.lastIndexOf('}');
+          if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+          }
+
           final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
           return GeminiResponseModel.fromJson(decoded);
         } catch (e) {
           lastError = e is Exception ? e : Exception(e.toString());
           final errStr = e.toString().toLowerCase();
+          debugPrint('Gemini REST error with $currentModel: $e');
 
           // 1. Invalid API key check
-          if (errStr.contains('api_key_invalid') || errStr.contains('api key not valid')) {
+          if (errStr.contains('api_key_invalid') ||
+              errStr.contains('api key not valid') ||
+              errStr.contains('invalid_argument')) {
             throw Exception('Geçersiz Gemini API Anahtarı. Lütfen Ayarlar\'dan API anahtarınızı kontrol edin.');
           }
 
-          // 2. Model not found or not supported for generateContent -> switch to next model immediately
-          final isNotFoundOrUnsupported = errStr.contains('not found') ||
+          // 2. Model not found (404) or unsupported -> seamlessly try next model
+          if (errStr.contains('not found') ||
               errStr.contains('404') ||
-              errStr.contains('not supported for generate content') ||
-              errStr.contains('is not supported');
-
-          if (isNotFoundOrUnsupported) {
+              errStr.contains('not supported')) {
             onProgress?.call('$currentModel desteklenmiyor, sıradaki modele geçiliyor...');
             continue;
           }
 
           // 3. 503 Overload or 429 Rate Limit
-          final is503Overload = errStr.contains('503') ||
+          if (errStr.contains('503') ||
               errStr.contains('high demand') ||
-              errStr.contains('unavailable');
-
-          final isQuotaRateLimit = errStr.contains('quota') ||
-              errStr.contains('rate') ||
-              errStr.contains('429') ||
-              errStr.contains('exceeded');
-
-          if (is503Overload || isQuotaRateLimit) {
-            final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
-            final secondsToWait = match != null
-                ? (double.tryParse(match.group(1) ?? '15')?.ceil() ?? 15) + 1
-                : 15;
-
+              errStr.contains('quota') ||
+              errStr.contains('429')) {
             if (attempt < 2 && i == modelsToTry.length - 1) {
-              onProgress?.call(
-                'Sunucu yoğunluğu / kota sınırı. $secondsToWait saniye beklenip tekrar denenecek...',
-              );
-              await Future.delayed(Duration(seconds: secondsToWait));
+              onProgress?.call('Kota/yoğunluk limiti. 10 saniye beklenip tekrar denenecek...');
+              await Future.delayed(const Duration(seconds: 10));
               break;
             } else {
               continue;
             }
           }
 
-          // Other errors: try next model in waterfall
           continue;
         }
       }
     }
 
     throw lastError ?? Exception('Gemini modellerine bağlanılamadı.');
+  }
+
+  Future<String> _executeGenerateContent({
+    required String model,
+    required String prompt,
+  }) async {
+    final client = HttpClient();
+    final url = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${apiKey.trim()}',
+    );
+
+    final request = await client.postUrl(url);
+    request.headers.set('Content-Type', 'application/json; charset=utf-8');
+
+    final payload = {
+      'contents': [
+        {
+          'role': 'user',
+          'parts': [
+            {'text': prompt}
+          ]
+        }
+      ],
+      'generationConfig': {
+        'temperature': 0.2,
+      }
+    };
+
+    final bytes = utf8.encode(jsonEncode(payload));
+    request.add(bytes);
+
+    final response = await request.close().timeout(const Duration(seconds: 25));
+    final body = await response.transform(utf8.decoder).join();
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final candidates = json['candidates'] as List<dynamic>?;
+      if (candidates == null || candidates.isEmpty) {
+        throw Exception('Gemini yanıt üretmedi.');
+      }
+      final first = candidates[0] as Map<String, dynamic>;
+      final content = first['content'] as Map<String, dynamic>?;
+      final parts = content?['parts'] as List<dynamic>?;
+      if (parts == null || parts.isEmpty) {
+        throw Exception('Gemini yanıt içeriği boş.');
+      }
+      return parts[0]['text']?.toString() ?? '';
+    } else {
+      String errMsg = 'HTTP ${response.statusCode}';
+      try {
+        final errJson = jsonDecode(body) as Map<String, dynamic>;
+        final errObj = errJson['error'] as Map<String, dynamic>?;
+        if (errObj != null) {
+          errMsg = errObj['message']?.toString() ?? errMsg;
+        }
+      } catch (_) {}
+      throw HttpException('[$model] $errMsg: $body', uri: url);
+    }
   }
 }

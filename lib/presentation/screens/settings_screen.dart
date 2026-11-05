@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/gemini_config_provider.dart';
 import '../providers/notification_listener_provider.dart';
 import '../providers/periodic_sync_provider.dart';
+import '../providers/updater_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -508,6 +509,114 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ? null
                             : () => ref.read(periodicSyncProvider.notifier).triggerSync(),
                       ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // GitHub In-App Auto Updater
+          _buildSectionHeader('GitHub Otomatik Güncelleme'),
+          Consumer(
+            builder: (context, ref, _) {
+              final updater = ref.watch(updaterProvider);
+
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.code_rounded, color: Colors.amberAccent, size: 20),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Mevcut Sürüm: v1.0.0',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                        if (updater.hasUpdate)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.amberAccent.withAlpha(40),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amberAccent),
+                            ),
+                            child: Text(
+                              'Yeni: ${updater.releaseInfo?.tagName}',
+                              style: const TextStyle(fontSize: 11, color: Colors.amberAccent, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'GitHub releases üzerinden yeni APK sürümlerini doğrudan cihazınıza indirip otomatik olarak kurabilirsiniz.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                    if (updater.isDownloading) ...[
+                      const SizedBox(height: 14),
+                      LinearProgressIndicator(
+                        value: updater.downloadProgress > 0 ? updater.downloadProgress : null,
+                        color: Colors.amberAccent,
+                        backgroundColor: AppColors.surfaceLight,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'İndiriliyor: %${(updater.downloadProgress * 100).toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 11, color: Colors.amberAccent),
+                      ),
+                    ],
+                    if (updater.errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        updater.errorMessage!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: updater.isChecking
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.refresh, size: 16),
+                            label: const Text('Kontrol Et'),
+                            onPressed: updater.isChecking
+                                ? null
+                                : () => ref.read(updaterProvider.notifier).checkForUpdate(),
+                          ),
+                        ),
+                        if (updater.hasUpdate) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.amberAccent,
+                                foregroundColor: Colors.black,
+                              ),
+                              icon: const Icon(Icons.download, size: 16),
+                              label: Text(updater.isDownloading ? 'İndiriliyor...' : 'Şimdi Güncelle'),
+                              onPressed: updater.isDownloading
+                                  ? null
+                                  : () => ref.read(updaterProvider.notifier).downloadAndInstall(),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

@@ -16,6 +16,14 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
   final TextEditingController _textController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _textController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
   void dispose() {
     _textController.dispose();
     super.dispose();
@@ -25,9 +33,17 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
   Widget build(BuildContext context) {
     final speechState = ref.watch(speechProvider);
 
+    // Sync speech recognition text into controller safely
     if (speechState.recognizedWords.isNotEmpty &&
         speechState.recognizedWords != _textController.text) {
-      _textController.text = speechState.recognizedWords;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _textController.text != speechState.recognizedWords) {
+          _textController.text = speechState.recognizedWords;
+          _textController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _textController.text.length),
+          );
+        }
+      });
     }
 
     return Container(

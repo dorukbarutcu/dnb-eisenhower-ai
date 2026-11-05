@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/datasources/calendar_remote_datasource.dart';
 import '../../data/datasources/gemini_datasource.dart';
@@ -194,6 +195,7 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
             : (response.summary.isNotEmpty ? response.summary : 'İşlenecek görev bulunamadı.'),
       );
     } catch (e) {
+      debugPrint('TaskMatrix analysis error: $e');
       String msg = 'AI Processing Error: $e';
       final errLower = e.toString().toLowerCase();
       if (errLower.contains('503') || errLower.contains('high demand') || errLower.contains('unavailable')) {

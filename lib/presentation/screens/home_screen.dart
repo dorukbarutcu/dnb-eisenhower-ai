@@ -7,6 +7,7 @@ import '../providers/gemini_config_provider.dart';
 import '../providers/notification_listener_provider.dart';
 import '../providers/periodic_sync_provider.dart';
 import '../providers/task_matrix_provider.dart';
+import '../providers/updater_provider.dart';
 import '../widgets/add_task_dialog.dart';
 import '../widgets/matrix_quadrant_card.dart';
 import '../widgets/voice_input_sheet.dart';
@@ -23,6 +24,7 @@ class HomeScreen extends ConsumerWidget {
     final notifState = ref.watch(notificationListenerProvider);
     final geminiConfig = ref.watch(geminiConfigProvider);
     final syncState = ref.watch(periodicSyncProvider);
+    final updaterState = ref.watch(updaterProvider);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -42,6 +44,12 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          if (updaterState.hasUpdate)
+            IconButton(
+              tooltip: 'Yeni Güncelleme Mevcut (${updaterState.releaseInfo?.tagName})',
+              icon: const Icon(Icons.system_update, color: Colors.amberAccent),
+              onPressed: () => _showUpdateDialog(context, ref),
+            ),
           IconButton(
             tooltip: 'Weekly Schedule',
             icon: const Icon(Icons.calendar_month_outlined),
@@ -382,6 +390,81 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showUpdateDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return Consumer(
+          builder: (ctx, ref, _) {
+            final state = ref.watch(updaterProvider);
+            final info = state.releaseInfo;
+
+            return AlertDialog(
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.system_update, color: Colors.amberAccent),
+                  const SizedBox(width: 8),
+                  Text('Yeni Sürüm: ${info?.tagName ?? ""}'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    info?.releaseNotes.isNotEmpty == true
+                        ? info!.releaseNotes
+                        : 'GitHub üzerinde yeni bir kararlı sürüm yayınlandı.',
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  if (state.isDownloading) ...[
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(
+                      value: state.downloadProgress > 0 ? state.downloadProgress : null,
+                      color: Colors.amberAccent,
+                      backgroundColor: AppColors.surfaceLight,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'İndiriliyor: %${(state.downloadProgress * 100).toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 11, color: Colors.amberAccent),
+                    ),
+                  ],
+                  if (state.errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      state.errorMessage!,
+                      style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Kapat', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amberAccent,
+                    foregroundColor: Colors.black,
+                  ),
+                  icon: const Icon(Icons.download, size: 16),
+                  label: Text(state.isDownloading ? 'İndiriliyor...' : 'İndir & Güncelle'),
+                  onPressed: state.isDownloading
+                      ? null
+                      : () => ref.read(updaterProvider.notifier).downloadAndInstall(),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
