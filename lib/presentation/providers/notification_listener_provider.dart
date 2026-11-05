@@ -107,6 +107,8 @@ class NotificationListenerNotifier extends Notifier<NotificationListenerState> {
       // Trigger automatic classification and scheduling if not noise/duplicate
       if (!_isDuplicateOrNoise(notification)) {
         ref.read(taskMatrixProvider.notifier).processNotification(notification);
+      } else {
+        // Still keep in recent notifications list without running Gemini
       }
     });
     state = state.copyWith(isListening: true);

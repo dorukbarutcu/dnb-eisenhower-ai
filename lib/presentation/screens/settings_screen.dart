@@ -552,7 +552,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(width: 8),
                         const Expanded(
                           child: Text(
-                            'Mevcut Sürüm: v1.0.1',
+                            'Mevcut Sürüm: v1.0.2',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                         ),

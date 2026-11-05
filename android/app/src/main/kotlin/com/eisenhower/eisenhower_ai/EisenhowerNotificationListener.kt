@@ -32,6 +32,20 @@ class EisenhowerNotificationListener : NotificationListenerService() {
         )
 
         private val listeners = CopyOnWriteArrayList<(Map<String, Any?>) -> Unit>()
+        private val recentKeys = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+        fun isRecentlyHandled(key: String): Boolean {
+            val now = System.currentTimeMillis()
+            val last = recentKeys[key]
+            if (last != null && now - last < 60000) {
+                return true
+            }
+            recentKeys[key] = now
+            if (recentKeys.size > 200) {
+                recentKeys.clear()
+            }
+            return false
+        }
 
         fun registerListener(listener: (Map<String, Any?>) -> Unit) {
             listeners.add(listener)
@@ -99,23 +113,43 @@ class EisenhowerNotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
+        // Skip Android group summary container notifications
+        val flags = sbn.notification?.flags ?: 0
+        if (flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+
         val packageName = sbn.packageName ?: return
-        if (!TARGET_PACKAGES.contains(packageName)) return
+        val category = sbn.notification?.category ?: ""
+
+        val isTargetApp = TARGET_PACKAGES.contains(packageName) ||
+                packageName.contains("whatsapp") ||
+                packageName.contains("telegram") ||
+                packageName.contains("messaging") ||
+                packageName.contains("mms") ||
+                packageName.contains("sms") ||
+                packageName.contains("android.gm") ||
+                category == Notification.CATEGORY_MESSAGE ||
+                category == Notification.CATEGORY_EMAIL
+
+        if (!isTargetApp) return
 
         val extras = sbn.notification?.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: ""
+        val text = (extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
             ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-            ?: ""
+            ?: "").trim()
 
         if (title.isBlank() && text.isBlank()) return
 
         val source = when {
             packageName.contains("whatsapp") -> "WhatsApp"
             packageName.contains("telegram") || packageName.contains("challegram") -> "Telegram"
-            packageName.contains("android.gm") -> "Gmail"
+            packageName.contains("android.gm") || category == Notification.CATEGORY_EMAIL -> "Gmail"
             else -> "SMS"
         }
+
+        // Deduplication check: ignore identical notifications within 60s
+        val dedupKey = "$source:$title:$text"
+        if (isRecentlyHandled(dedupKey)) return
 
         val payload = mapOf(
             "source" to source,

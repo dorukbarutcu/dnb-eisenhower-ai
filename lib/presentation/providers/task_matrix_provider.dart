@@ -166,6 +166,33 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       final List<TaskEntity> finalizedTasks = [];
 
       for (final task in response.processedTasks) {
+        final cleanTitle = task.title.trim().toLowerCase();
+        if (cleanTitle.isEmpty) continue;
+
+        // Strict duplicate check against existing tasks in matrix
+        final isDuplicate = state.tasks.any((existing) {
+          final existingTitle = existing.title.trim().toLowerCase();
+          // 1. Same or near-identical title
+          if (existingTitle == cleanTitle) return true;
+          if (cleanTitle.length > 8 && existingTitle.contains(cleanTitle)) return true;
+          if (existingTitle.length > 8 && cleanTitle.contains(existingTitle)) return true;
+
+          // 2. Same scheduled calendar time and source
+          if (existing.calendarEvent.start != null &&
+              task.calendarEvent.start != null &&
+              existing.calendarEvent.start!.isAtSameMomentAs(task.calendarEvent.start!) &&
+              existing.source == task.source) {
+            return true;
+          }
+
+          return false;
+        });
+
+        if (isDuplicate) {
+          debugPrint('TaskMatrix: Mükerrer görev atlandı -> "${task.title}"');
+          continue;
+        }
+
         var currentEvent = task.calendarEvent;
 
         // Synchronize with Google Calendar if enabled & client available
@@ -191,8 +218,10 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
       state = state.copyWith(
         lastSummary: response.summary,
         statusMessage: finalizedTasks.isNotEmpty
-            ? '${finalizedTasks.length} görev matrise eklendi.'
-            : (response.summary.isNotEmpty ? response.summary : 'İşlenecek görev bulunamadı.'),
+            ? '${finalizedTasks.length} yeni görev matrise eklendi.'
+            : (response.processedTasks.isNotEmpty
+                ? 'Mükerrer görevler atlandı (zaten mevcut).'
+                : (response.summary.isNotEmpty ? response.summary : 'İşlenecek görev bulunamadı.')),
       );
     } catch (e) {
       debugPrint('TaskMatrix analysis error: $e');
@@ -210,7 +239,7 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
   }
 
   Future<void> processNotification(RawNotificationModel notification) async {
-    final content = 'From: ${notification.title}\nMessage: ${notification.text}';
+    final content = 'Gelen ${notification.source.value} Bildirimi:\nGönderen: ${notification.title}\nMesaj Metni: ${notification.text}';
     await processInputContent(content: content, source: notification.source);
   }
 

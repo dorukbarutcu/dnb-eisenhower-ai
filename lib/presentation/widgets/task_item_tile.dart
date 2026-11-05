@@ -16,6 +16,19 @@ class TaskItemTile extends StatelessWidget {
     required this.onDelete,
   });
 
+  Color _getQuadrantColor(EisenhowerQuadrant quadrant) {
+    switch (quadrant) {
+      case EisenhowerQuadrant.q1:
+        return AppColors.q1Red;
+      case EisenhowerQuadrant.q2:
+        return AppColors.q2Blue;
+      case EisenhowerQuadrant.q3:
+        return AppColors.q3Yellow;
+      case EisenhowerQuadrant.q4:
+        return AppColors.q4Gray;
+    }
+  }
+
   Color _getSourceColor(TaskSource source) {
     switch (source) {
       case TaskSource.whatsApp:
@@ -65,13 +78,21 @@ class TaskItemTile extends StatelessWidget {
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: task.isCompleted ? Colors.transparent : AppColors.surfaceLight.withAlpha(120),
+            color: task.isCompleted ? Colors.transparent : _getQuadrantColor(task.quadrant).withAlpha(80),
+            width: 1.0,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(40),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
