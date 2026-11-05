@@ -95,6 +95,7 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
         rawContent: content,
         source: source.value,
         currentDateTime: DateTime.now(),
+        onProgress: (msg) => state = state.copyWith(statusMessage: msg),
       );
 
       final authClient = await ref.read(googleAuthProvider.notifier).getAuthenticatedClient();
@@ -132,9 +133,14 @@ class TaskMatrixNotifier extends Notifier<TaskMatrixState> {
         statusMessage: 'Processed ${finalizedTasks.length} task(s) successfully.',
       );
     } catch (e) {
+      String msg = 'AI Processing Error: $e';
+      if (e.toString().toLowerCase().contains('quota') ||
+          e.toString().toLowerCase().contains('limit')) {
+        msg = 'Gemini API dakikalık kota sınırına ulaşıldı (Free Tier limit). Lütfen 15 saniye bekleyin veya Ayarlar\'dan daha yüksek kotalı gemini-2.5-flash / gemini-1.5-flash modeline geçin.';
+      }
       state = state.copyWith(
         isProcessing: false,
-        errorMessage: 'AI Processing Error: $e',
+        errorMessage: msg,
       );
     }
   }

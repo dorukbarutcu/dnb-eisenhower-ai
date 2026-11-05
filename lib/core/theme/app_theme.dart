@@ -14,6 +14,7 @@ class AppColors {
   // Source Badge Colors
   static const Color whatsAppGreen = Color(0xFF25D366);
   static const Color telegramBlue = Color(0xFF0088CC);
+  static const Color smsOrange = Color(0xFFF97316);
   static const Color gmailRed = Color(0xFFEA4335);
   static const Color voicePurple = Color(0xFF8B5CF6);
   static const Color manualIndigo = Color(0xFF6366F1);

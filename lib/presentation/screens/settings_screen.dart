@@ -83,16 +83,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   dropdownColor: AppColors.surface,
                   items: const [
                     DropdownMenuItem(
+                      value: 'gemini-3.8-flash',
+                      child: Text('gemini-3.8-flash (Gemini 3.8 Flash - Önerilen)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'gemini-3.8-pro',
+                      child: Text('gemini-3.8-pro (Gemini 3.8 Pro - Yüksek Akıl Yürütme)'),
+                    ),
+                    DropdownMenuItem(
                       value: 'gemini-2.5-flash',
-                      child: Text('gemini-2.5-flash (En Güncel Flash)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'gemini-flash-latest',
-                      child: Text('gemini-flash-latest (Otomatik Son Sürüm)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'gemini-2.5-pro',
-                      child: Text('gemini-2.5-pro (Yüksek Akıl Yürütme)'),
+                      child: Text('gemini-2.5-flash (Gemini 2.5 Flash)'),
                     ),
                   ],
                   onChanged: (val) {

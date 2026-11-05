@@ -22,6 +22,8 @@ class TaskItemTile extends StatelessWidget {
         return AppColors.whatsAppGreen;
       case TaskSource.telegram:
         return AppColors.telegramBlue;
+      case TaskSource.sms:
+        return AppColors.smsOrange;
       case TaskSource.gmail:
         return AppColors.gmailRed;
       case TaskSource.voiceInput:
@@ -36,6 +38,8 @@ class TaskItemTile extends StatelessWidget {
       case TaskSource.whatsApp:
       case TaskSource.telegram:
         return Icons.chat_bubble_outline;
+      case TaskSource.sms:
+        return Icons.sms_outlined;
       case TaskSource.gmail:
         return Icons.email_outlined;
       case TaskSource.voiceInput:

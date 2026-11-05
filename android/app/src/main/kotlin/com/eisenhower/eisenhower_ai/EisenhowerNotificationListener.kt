@@ -13,7 +13,14 @@ class EisenhowerNotificationListener : NotificationListenerService() {
             "com.whatsapp.w4b",
             "org.telegram.messenger",
             "org.telegram.messenger.web",
-            "org.thunderdog.challegram"
+            "org.thunderdog.challegram",
+            "com.google.android.apps.messaging",
+            "com.samsung.android.messaging",
+            "com.android.mms",
+            "com.oneplus.mms",
+            "com.coloros.mms",
+            "com.oppo.mms",
+            "com.huawei.message"
         )
 
         private val listeners = CopyOnWriteArrayList<(Map<String, Any?>) -> Unit>()
@@ -24,6 +31,14 @@ class EisenhowerNotificationListener : NotificationListenerService() {
 
         fun unregisterListener(listener: (Map<String, Any?>) -> Unit) {
             listeners.remove(listener)
+        }
+
+        fun dispatchPayload(payload: Map<String, Any?>) {
+            for (listener in listeners) {
+                try {
+                    listener(payload)
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -42,7 +57,11 @@ class EisenhowerNotificationListener : NotificationListenerService() {
 
         if (title.isBlank() && text.isBlank()) return
 
-        val source = if (packageName.contains("whatsapp")) "WhatsApp" else "Telegram"
+        val source = when {
+            packageName.contains("whatsapp") -> "WhatsApp"
+            packageName.contains("telegram") || packageName.contains("challegram") -> "Telegram"
+            else -> "SMS"
+        }
 
         val payload = mapOf(
             "source" to source,
@@ -52,10 +71,6 @@ class EisenhowerNotificationListener : NotificationListenerService() {
             "postTime" to sbn.postTime
         )
 
-        for (listener in listeners) {
-            try {
-                listener(payload)
-            } catch (_: Exception) {}
-        }
+        dispatchPayload(payload)
     }
 }

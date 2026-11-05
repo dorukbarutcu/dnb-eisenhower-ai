@@ -17,10 +17,17 @@ class RawNotificationModel {
 
   factory RawNotificationModel.fromMap(Map<dynamic, dynamic> map) {
     final srcStr = map['source']?.toString() ?? 'WhatsApp';
+    TaskSource source;
+    if (srcStr.toLowerCase().contains('telegram')) {
+      source = TaskSource.telegram;
+    } else if (srcStr.toLowerCase().contains('sms')) {
+      source = TaskSource.sms;
+    } else {
+      source = TaskSource.whatsApp;
+    }
+
     return RawNotificationModel(
-      source: srcStr.toLowerCase().contains('telegram')
-          ? TaskSource.telegram
-          : TaskSource.whatsApp,
+      source: source,
       packageName: map['packageName']?.toString() ?? '',
       title: map['title']?.toString() ?? '',
       text: map['text']?.toString() ?? '',

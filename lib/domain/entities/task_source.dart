@@ -1,6 +1,7 @@
 enum TaskSource {
   whatsApp('WhatsApp'),
   telegram('Telegram'),
+  sms('SMS'),
   gmail('Gmail'),
   voiceInput('Voice_Input'),
   manualText('Manual_Text');

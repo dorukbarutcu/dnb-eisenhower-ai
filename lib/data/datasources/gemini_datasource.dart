@@ -8,12 +8,12 @@ class GeminiDatasource {
 
   GeminiDatasource({
     required this.apiKey,
-    this.modelName = 'gemini-2.5-flash',
+    this.modelName = 'gemini-3.8-flash',
   });
 
   static const String _systemInstruction = '''
-You are the intelligence engine of "Eisenhower AI", an executive task manager and automated calendar scheduler.
-Your mission is to analyze incoming unstructured communications (WhatsApp/Telegram notifications, Gmail unread threads, Voice notes, or manual inputs), extract actionable tasks, classify them into the Eisenhower Matrix, and configure appropriate Google Calendar events.
+You are the intelligence engine of "DNB Eisenhower AI", an executive task manager and automated calendar scheduler.
+Your mission is to analyze incoming communications (WhatsApp, Telegram, SMS notifications, Gmail unread threads, Voice notes, or manual inputs), extract actionable tasks, classify them into the Eisenhower Matrix, and configure appropriate Google Calendar events.
 
 The Eisenhower Matrix Rules:
 - Q1 (Do First): High Urgency (>=7), High Importance (>=7). Color ID: 11 (Flamingo/Red). Crises, tight deadlines, critical blockers.
@@ -39,7 +39,7 @@ You MUST output ONLY valid JSON matching this schema:
       "task_id": "String (uuid)",
       "title": "String",
       "description": "String",
-      "source": "WhatsApp | Telegram | Gmail | Voice_Input | Manual_Text",
+      "source": "WhatsApp | Telegram | SMS | Gmail | Voice_Input | Manual_Text",
       "quadrant": "Q1 | Q2 | Q3 | Q4",
       "urgency_score": 1,
       "importance_score": 1,
@@ -62,6 +62,7 @@ You MUST output ONLY valid JSON matching this schema:
     required String rawContent,
     required String source,
     DateTime? currentDateTime,
+    Function(String status)? onProgress,
   }) async {
     final now = currentDateTime ?? DateTime.now();
     final client = GenerativeModel(
@@ -81,27 +82,52 @@ Raw Communication / Data:
 $rawContent
 ''';
 
-    final response = await client.generateContent([Content.text(promptText)]);
-    final responseText = response.text;
+    int attempts = 0;
+    while (attempts < 3) {
+      attempts++;
+      try {
+        final response = await client.generateContent([Content.text(promptText)]);
+        final responseText = response.text;
 
-    if (responseText == null || responseText.trim().isEmpty) {
-      throw Exception('Empty response from Gemini API');
+        if (responseText == null || responseText.trim().isEmpty) {
+          throw Exception('Gemini API boş yanıt döndürdü.');
+        }
+
+        var cleaned = responseText.trim();
+        if (cleaned.startsWith('```json')) {
+          cleaned = cleaned.substring(7);
+        }
+        if (cleaned.startsWith('```')) {
+          cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith('```')) {
+          cleaned = cleaned.substring(0, cleaned.length - 3);
+        }
+        cleaned = cleaned.trim();
+
+        final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
+        return GeminiResponseModel.fromJson(decoded);
+      } catch (e) {
+        final errStr = e.toString().toLowerCase();
+        final isQuotaError = errStr.contains('quota') ||
+            errStr.contains('rate') ||
+            errStr.contains('429') ||
+            errStr.contains('limit');
+
+        if (isQuotaError && attempts < 3) {
+          final match = RegExp(r'retry in (\d+(\.\d+)?)s').firstMatch(e.toString());
+          final seconds = match != null
+              ? (double.tryParse(match.group(1) ?? '12')?.ceil() ?? 12) + 2
+              : 12;
+
+          onProgress?.call('Kota sınırına ulaşıldı, $seconds saniye sonra otomatik tekrar deneniyor ($attempts/3)...');
+          await Future.delayed(Duration(seconds: seconds));
+          continue;
+        }
+        rethrow;
+      }
     }
 
-    // Clean potential markdown wrappers if any
-    var cleaned = responseText.trim();
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.substring(7);
-    }
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.substring(3);
-    }
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.substring(0, cleaned.length - 3);
-    }
-    cleaned = cleaned.trim();
-
-    final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
-    return GeminiResponseModel.fromJson(decoded);
+    throw Exception('Gemini API isteği 3 deneme sonrasında zaman aşımına uğradı.');
   }
 }
