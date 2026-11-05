@@ -20,6 +20,7 @@ class GoogleAuthClientService {
   GoogleSignInAccount? _currentUser;
   GoogleSignInClientAuthorization? _authorization;
   bool _initialized = false;
+  String? _lastServerClientId;
 
   GoogleSignInAccount? get currentUser => _currentUser;
   bool get isSignedIn => _currentUser != null;
@@ -28,9 +29,16 @@ class GoogleAuthClientService {
   Stream<GoogleSignInAccount?> get onAuthStateChanged => _authChangeController.stream;
 
   Future<void> initialize({String? serverClientId}) async {
-    if (_initialized) return;
+    final cleanServerClientId = serverClientId?.trim().isEmpty == true ? null : serverClientId?.trim();
+
+    if (_initialized && _lastServerClientId == cleanServerClientId) {
+      return;
+    }
+
     try {
-      await _googleSignIn.initialize(serverClientId: serverClientId);
+      _lastServerClientId = cleanServerClientId;
+      await _googleSignIn.initialize(serverClientId: cleanServerClientId);
+
       _googleSignIn.authenticationEvents.listen((event) {
         switch (event) {
           case GoogleSignInAuthenticationEventSignIn():
@@ -42,18 +50,23 @@ class GoogleAuthClientService {
             _authChangeController.add(null);
         }
       });
+
       await _googleSignIn.attemptLightweightAuthentication();
       _initialized = true;
     } catch (e) {
-      debugPrint('Google Sign-In init error: $e');
+      debugPrint('Google Sign-In initialization note: $e');
+      _initialized = true;
     }
   }
 
-  Future<GoogleSignInAccount?> signIn() async {
+  Future<GoogleSignInAccount?> signIn({String? serverClientId}) async {
     try {
-      if (!_initialized) {
-        await initialize();
+      await initialize(serverClientId: serverClientId);
+
+      if (!_googleSignIn.supportsAuthenticate()) {
+        throw Exception('Google Sign-In authenticate is not supported on this device/platform.');
       }
+
       final account = await _googleSignIn.authenticate();
       _currentUser = account;
       _authChangeController.add(_currentUser);

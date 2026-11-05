@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
@@ -14,17 +15,24 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _apiKeyController;
+  late final TextEditingController _serverClientIdController;
+
+  static const String appPackageName = 'com.eisenhower.eisenhower_ai';
+  static const String debugSha1 = 'B3:7B:7A:6C:5A:E9:34:D2:D5:1C:93:64:56:0F:EE:C3:25:48:CC:22';
 
   @override
   void initState() {
     super.initState();
     final config = ref.read(geminiConfigProvider);
+    final authState = ref.read(googleAuthProvider);
     _apiKeyController = TextEditingController(text: config.apiKey);
+    _serverClientIdController = TextEditingController(text: authState.serverClientId);
   }
 
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _serverClientIdController.dispose();
     super.dispose();
   }
 
@@ -125,6 +133,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (authState.errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withAlpha(35),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.redAccent.withAlpha(120)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            authState.errorMessage!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (authState.isAuthenticated) ...[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -150,28 +182,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ] else ...[
                   const Text(
-                    'Connect your Google Account to automatically pull unread Gmail messages and sync scheduled Eisenhower tasks directly into Google Calendar.',
+                    'Android Credential Manager üzerinden Gmail ve Calendar API erişimi için Google Cloud Console Web Client ID (serverClientId) gereklidir.',
                     style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _serverClientIdController,
+                    decoration: const InputDecoration(
+                      labelText: 'Web Client ID (serverClientId)',
+                      hintText: 'xxxxxx.apps.googleusercontent.com',
+                      prefixIcon: Icon(Icons.security, color: AppColors.q2Blue),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final id = _serverClientIdController.text.trim();
+                        await ref.read(googleAuthProvider.notifier).updateServerClientId(id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Client ID kaydedildi.')),
+                          );
+                        }
+                      },
+                      child: const Text('Kaydet'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildCopyCard(
+                    title: 'Paket Adı (Package Name)',
+                    value: appPackageName,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCopyCard(
+                    title: 'Debug SHA-1 Parmak İzi',
+                    value: debugSha1,
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.surfaceLight,
-                        foregroundColor: AppColors.textPrimary,
+                        backgroundColor: AppColors.q2Blue,
+                        foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.account_circle, color: Colors.white),
                       label: authState.isLoading
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Text('Sign In with Google'),
                       onPressed: authState.isLoading
                           ? null
-                          : () => ref.read(googleAuthProvider.notifier).signIn(),
+                          : () {
+                              final id = _serverClientIdController.text.trim();
+                              ref.read(googleAuthProvider.notifier).updateServerClientId(id);
+                              ref.read(googleAuthProvider.notifier).signIn();
+                            },
                     ),
                   ),
                 ],
@@ -233,6 +304,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCopyCard({required String title, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+                Text(value, style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.copy, size: 16, color: AppColors.q2Blue),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: value));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$title panoya kopyalandı!')),
+              );
+            },
           ),
         ],
       ),
